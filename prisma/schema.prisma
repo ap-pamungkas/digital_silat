@@ -1,0 +1,423 @@
+// Prisma Schema for Digital Pencak Silat Scoring System (PAGAR)
+// Follows IPSI 2022 / PERSILAT 2023 Scoring Domain Rules
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------
+// ENUMS
+// ----------------------------------------------------
+
+enum Role {
+  ADMIN
+  OPERATOR
+  JUDGE
+  REFEREE
+  SUPER_ADMIN
+}
+
+enum TournamentStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  ARCHIVED
+}
+
+enum ArenaStatus {
+  ACTIVE
+  IDLE
+  MAINTENANCE
+}
+
+enum Gender {
+  PUTRA
+  PUTRI
+}
+
+enum CategoryType {
+  TANDING
+  SENI_TUNGGAL
+  SENI_GANDA
+  SENI_REGU
+  SOLO_KREATIF
+}
+
+enum AgeGroup {
+  USIA_DINI
+  PRA_REMAJA
+  REMAJA
+  DEWASA
+  MASTER
+}
+
+enum Corner {
+  RED
+  BLUE
+}
+
+enum MatchStatus {
+  SCHEDULED
+  READY
+  LIVE
+  PAUSED
+  FINISHED
+  CANCELLED
+}
+
+enum TimerStatus {
+  READY
+  RUNNING
+  PAUSED
+  WARNING
+  FINISHED
+}
+
+enum ConnectionStatus {
+  ONLINE
+  SYNCING
+  RECONNECTING
+  OFFLINE
+}
+
+enum ScoringAction {
+  PUKULAN
+  TENDANGAN
+  JATUHAN
+  TANGKISAN_PUKULAN
+  TANGKISAN_TENDANGAN
+  HUKUMAN
+}
+
+enum ScoreEventStatus {
+  VERIFIED
+  PENDING
+  REJECTED
+  INVALIDATED
+}
+
+enum PenaltyType {
+  TEGURAN_1 // -1 Point
+  TEGURAN_2 // -2 Points
+  PERINGATAN_1 // -5 Points
+  PERINGATAN_2 // -10 Points
+  PERINGATAN_3 // Diskualifikasi
+  DISKUALIFIKASI
+}
+
+enum MatchStage {
+  PENYISIHAN
+  PEREMPAT_FINAL
+  SEMI_FINAL
+  FINAL
+  PEREBUTAN_JUARA_3
+}
+
+enum WinReason {
+  MENANG_ANGKA
+  MENANG_MUTLAK
+  MENANG_TEKNIK
+  MENANG_DISKUALIFIKASI
+  MENANG_W_O
+  MENANG_UNDUR_DIRI
+}
+
+// ----------------------------------------------------
+// 1. AUTHENTICATION & USERS
+// ----------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String
+  role         Role     @default(OPERATOR)
+  avatarUrl    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  judge     Judge?
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+// ----------------------------------------------------
+// 2. TOURNAMENT (TURNAMEN)
+// ----------------------------------------------------
+
+model Tournament {
+  id             String           @id @default(cuid())
+  code           String           @unique // e.g. "TOUR-2026-ALE"
+  name           String // e.g. "Kejuaraan Pencak Silat Ale-Ale 2026"
+  description    String?
+  location       String // e.g. "Ketapang, Kalimantan Barat"
+  startDate      DateTime
+  endDate        DateTime
+  status         TournamentStatus @default(UPCOMING)
+  rulesetVersion String           @default("IPSI 2022")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  arenas      Arena[]
+  contingents Contingent[]
+  categories  Category[]
+  matches     Match[]
+
+  @@map("tournaments")
+}
+
+// ----------------------------------------------------
+// 3. ARENA (GELANGGANG)
+// ----------------------------------------------------
+
+model Arena {
+  id               String      @id @default(cuid())
+  tournamentId     String
+  name             String // e.g. "Gelanggang 1"
+  arenaCode        String // e.g. "ARENA-01"
+  arenaNumber      Int // 1, 2, 3, etc.
+  status           ArenaStatus @default(IDLE)
+  displayConnected Boolean     @default(false)
+  obsConnected     Boolean     @default(false)
+  currentMatchId   String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  judges     Judge[]
+  matches    Match[]
+
+  @@unique([tournamentId, arenaCode])
+  @@map("arenas")
+}
+
+// ----------------------------------------------------
+// 4. CONTINGENT / TEAM (KONTINGEN)
+// ----------------------------------------------------
+
+model Contingent {
+  id           String   @id @default(cuid())
+  tournamentId String
+  name         String // e.g. "Jawa Tengah"
+  code         String // e.g. "JTG"
+  officialName String? // Leader / Manager name
+  contactPhone String?
+  logoUrl      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  athletes   Athlete[]
+
+  @@unique([tournamentId, code])
+  @@map("contingents")
+}
+
+// ----------------------------------------------------
+// 5. CATEGORY (KELAS & KATEGORI PERTANDINGAN)
+// ----------------------------------------------------
+
+model Category {
+  id                   String       @id @default(cuid())
+  tournamentId         String
+  name                 String // e.g. "Tanding - Kelas A Putra"
+  categoryClass        String // e.g. "Kelas A (45-50 kg)"
+  type                 CategoryType @default(TANDING)
+  gender               Gender
+  ageGroup             AgeGroup     @default(DEWASA)
+  minWeight            Float?
+  maxWeight            Float?
+  roundCount           Int          @default(3)
+  roundDurationSeconds Int          @default(120) // 2 minutes
+  restDurationSeconds  Int          @default(60) // 1 minute rest
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  athletes   Athlete[]
+  matches    Match[]
+
+  @@map("categories")
+}
+
+// ----------------------------------------------------
+// 6. ATHLETE (ATLET / PESILAT)
+// ----------------------------------------------------
+
+model Athlete {
+  id             String    @id @default(cuid())
+  contingentId   String
+  categoryId     String
+  name           String // e.g. "Bima Sakti"
+  gender         Gender
+  birthDate      DateTime?
+  weight         Float?
+  height         Float?
+  seed           Int?
+  avatarUrl      String?
+  medicalCleared Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  contingent Contingent @relation(fields: [contingentId], references: [id], onDelete: Cascade)
+  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  redMatches  Match[] @relation("RedAthleteMatches")
+  blueMatches Match[] @relation("BlueAthleteMatches")
+  wonMatches  Match[] @relation("WinnerAthleteMatches")
+
+  @@map("athletes")
+}
+
+// ----------------------------------------------------
+// 7. JUDGE (WASIT JURI)
+// ----------------------------------------------------
+
+model Judge {
+  id            String           @id @default(cuid())
+  userId        String?          @unique
+  arenaId       String
+  judgeNumber   Int // 1 to 5
+  name          String // e.g. "Bambang Sudibyo"
+  licenseNumber String?
+  status        ConnectionStatus @default(OFFLINE)
+  batteryLevel  Int? // 0-100%
+  pingMs        Int? // Round-trip latency
+  device        String? // e.g. "Galaxy Tab S8"
+  lastActiveAt  DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  arena       Arena        @relation(fields: [arenaId], references: [id], onDelete: Cascade)
+  scoreEvents ScoreEvent[]
+
+  @@unique([arenaId, judgeNumber])
+  @@map("judges")
+}
+
+// ----------------------------------------------------
+// 8. MATCH (PARTAI PERTANDINGAN)
+// ----------------------------------------------------
+
+model Match {
+  id            String      @id @default(cuid())
+  tournamentId  String
+  arenaId       String
+  categoryId    String
+  matchNumber   String // e.g. "023" or "MATCH #023"
+  stage         MatchStage  @default(PENYISIHAN)
+  scheduledTime DateTime?
+  status        MatchStatus @default(SCHEDULED)
+
+  currentRound         Int         @default(1)
+  totalRounds          Int         @default(3)
+  roundDurationSeconds Int         @default(120)
+  timeRemainingSeconds Int         @default(120)
+  timerStatus          TimerStatus @default(READY)
+  timerLastStartedAt   DateTime?
+
+  redAthleteId  String
+  blueAthleteId String
+
+  redScore  Int @default(0)
+  blueScore Int @default(0)
+
+  winnerCorner    Corner?
+  winnerAthleteId String?
+  winReason       WinReason?
+
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  arena         Arena      @relation(fields: [arenaId], references: [id], onDelete: Cascade)
+  category      Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  redAthlete    Athlete    @relation("RedAthleteMatches", fields: [redAthleteId], references: [id], onDelete: Restrict)
+  blueAthlete   Athlete    @relation("BlueAthleteMatches", fields: [blueAthleteId], references: [id], onDelete: Restrict)
+  winnerAthlete Athlete?   @relation("WinnerAthleteMatches", fields: [winnerAthleteId], references: [id], onDelete: SetNull)
+
+  scoreEvents ScoreEvent[]
+  penalties   Penalty[]
+  auditLogs   AuditLog[]
+
+  @@map("matches")
+}
+
+// ----------------------------------------------------
+// 9. SCORE EVENT (EVENT PENILAIAN JURI)
+// ----------------------------------------------------
+
+model ScoreEvent {
+  id                    String           @id @default(cuid())
+  matchId               String
+  judgeId               String
+  judgeNumber           Int // 1 to 5
+  corner                Corner
+  action                ScoringAction
+  points                Int // +1, +2, +3
+  round                 Int // 1, 2, 3
+  matchTime             String // e.g. "01:48"
+  matchTimestampSeconds Int? // Remaining seconds in current round
+  verified              Boolean          @default(true)
+  status                ScoreEventStatus @default(VERIFIED)
+  createdAt             DateTime         @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  judge Judge @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, round])
+  @@index([matchId, corner])
+  @@map("score_events")
+}
+
+// ----------------------------------------------------
+// 10. PENALTY (HUKUMAN & PELANGGARAN)
+// ----------------------------------------------------
+
+model Penalty {
+  id             String      @id @default(cuid())
+  matchId        String
+  corner         Corner
+  type           PenaltyType
+  pointsDeducted Int // -1, -2, -5, -10, 0
+  round          Int // 1, 2, 3
+  refereeNote    String? // e.g. "Keluar Gelanggang", "Pukulan Terlarang"
+  matchTime      String? // e.g. "00:45"
+  timestamp      DateTime    @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, corner])
+  @@map("penalties")
+}
+
+// ----------------------------------------------------
+// 11. AUDIT LOG (JEJAK AUDIT & KEGIATAN SISTEM)
+// ----------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  matchId   String?
+  action    String // e.g. "START_MATCH", "PAUSE_TIMER", "APPLY_PENALTY", "SCORE_VERIFIED"
+  details   String? // JSON formatted or string details
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  match Match? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([matchId])
+  @@index([userId])
+  @@map("audit_logs")
+}

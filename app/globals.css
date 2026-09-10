@@ -1,26 +1,150 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Light theme tokens */
+    --bg-primary: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-elevated: #f1f5f9;
+    --bg-container-high: #e2e8f0;
+    --bg-container-highest: #cbd5e1;
+    --border-color: #e2e8f0;
+    --border-variant: #cbd5e1;
+    
+    --primary-color: #b45309;
+    --primary-container: #f59e0b;
+    --on-primary: #ffffff;
+    --on-primary-container: #451a03;
+    --primary-fixed-dim: #d97706;
+    
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    
+    --red-primary: #dc2626;
+    --red-dark: #b91c1c;
+    --red-bg: rgba(220, 38, 38, 0.08);
+    --red-border: rgba(220, 38, 38, 0.25);
+    
+    --blue-primary: #2563eb;
+    --blue-dark: #1d4ed8;
+    --blue-bg: rgba(37, 99, 235, 0.08);
+    --blue-border: rgba(37, 99, 235, 0.25);
+    
+    --status-success: #16a34a;
+    --status-warning: #d97706;
+    --status-danger: #dc2626;
+    --status-info: #0284c7;
+  }
+
+  .dark {
+    /* Dark theme tokens (PAGAR Ale-Ale deep navy palette) */
+    --bg-primary: #051426;
+    --bg-surface: #0d1c2f;
+    --bg-elevated: #122033;
+    --bg-container-high: #1c2b3e;
+    --bg-container-highest: #273649;
+    --border-color: #273649;
+    --border-variant: #4f4633;
+    
+    --primary-color: #ffd165;
+    --primary-container: #eab308;
+    --on-primary: #3f2e00;
+    --on-primary-container: #604700;
+    --primary-fixed-dim: #f7be1d;
+    
+    --text-primary: #d5e3fd;
+    --text-secondary: #d3c5ac;
+    --text-muted: #94a3b8;
+    
+    --red-primary: #ef4444;
+    --red-dark: #dc2626;
+    --red-bg: rgba(239, 68, 68, 0.12);
+    --red-border: rgba(239, 68, 68, 0.35);
+    
+    --blue-primary: #3b82f6;
+    --blue-dark: #2563eb;
+    --blue-bg: rgba(59, 130, 246, 0.12);
+    --blue-border: rgba(59, 130, 246, 0.35);
+    
+    --status-success: #22c55e;
+    --status-warning: #f59e0b;
+    --status-danger: #ef4444;
+    --status-info: #38bdf8;
+  }
+
+  * {
+    border-color: var(--border-color);
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  ::selection {
+    background-color: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+}
+
+.awan-larat-bg {
+  background-image: url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><path d="M10,10 Q20,20 30,10 T50,10" stroke="%23ffd165" fill="none" opacity="0.08"/></svg>');
+  background-repeat: repeat;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-container-highest);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+@keyframes score-flash {
+  0% {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.01);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-score-flash {
+  animation: score-flash 200ms ease-out;
+}
+
+@keyframes live-dot {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-live {
+  animation: live-dot 1.8s ease-in-out infinite;
 }
