@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useScoring, useToast } from "@/hooks";
+import { useScoring, useToast, useJudges } from "@/hooks";
 import { ScoreButton } from "@/components/scoring/ScoreButton";
 import { MatchTimer } from "@/components/scoring/MatchTimer";
 import { PenaltyDialog } from "@/components/scoring/PenaltyDialog";
@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 function JudgeScoringContent() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const matchId = (params?.matchId as string) || "M-001";
+  const matchId = typeof params?.matchId === "string" ? params.matchId : "";
   const urlJuri = searchParams.get("juri");
 
   const { toast } = useToast();
@@ -42,6 +42,7 @@ function JudgeScoringContent() {
     applyPenalty,
     lastFeedback,
   } = useScoring();
+  const { judges } = useJudges();
 
   const [isPenaltyOpen, setIsPenaltyOpen] = React.useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = React.useState(false);
@@ -62,7 +63,10 @@ function JudgeScoringContent() {
     }
   }, [matchId, activeMatch.id, setActiveMatchId]);
 
-  const match = matches.find((m) => m.id === matchId) || activeMatch;
+  const match = matches.find((item) => item.id === matchId);
+  const assignedJudge = judges.find((judge) =>
+    judge.judgeNumber === currentJudgeNumber && judge.arenaId === match?.arenaId
+  );
 
   const handleJudgeScore = (
     corner: Corner,
@@ -97,6 +101,14 @@ function JudgeScoringContent() {
   // Check last feedback consensus message
   const hasRecentFeedback =
     lastFeedback && Date.now() - lastFeedback.timestamp < 3500;
+
+  if (!match) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
+        Pertandingan tidak ditemukan di database.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 pb-8 select-none">
@@ -144,7 +156,7 @@ function JudgeScoringContent() {
               </button>
             ))}
           </div>
-          <JudgeStatus status="ONLINE" pingMs={18} showText={false} />
+          <JudgeStatus status={assignedJudge?.status ?? "OFFLINE"} pingMs={assignedJudge?.pingMs} showText={false} />
         </div>
       </header>
 

@@ -24,6 +24,20 @@ function formatDateIndo(date: Date): string {
   }
 }
 
+function parseScheduledDate(value?: string): Date {
+  if (!value) return new Date();
+
+  const parsedDate = new Date(value);
+  if (!Number.isNaN(parsedDate.getTime())) return parsedDate;
+
+  const timeParts = /^(?:([01]\d|2[0-3])):([0-5]\d)$/.exec(value);
+  if (!timeParts) throw new Error("Format waktu pertandingan tidak valid.");
+
+  const scheduledDate = new Date();
+  scheduledDate.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
+  return scheduledDate;
+}
+
 /**
  * 1. Ambil Data Turnamen Aktif & Ringkasan Dashboard
  */
@@ -222,10 +236,13 @@ export async function getJudges(): Promise<Judge[]> {
       name: j.name,
       arenaId: j.arena.arenaCode,
       status: j.status as "ONLINE" | "SYNCING" | "RECONNECTING" | "OFFLINE",
-      batteryLevel: j.batteryLevel ?? 90,
-      pingMs: j.pingMs ?? 20,
-      lastActive: "Just now",
-      device: j.device ?? "Tablet Wasit",
+      batteryLevel: j.batteryLevel ?? undefined,
+      pingMs: j.pingMs ?? undefined,
+      lastActive: j.lastActiveAt.toLocaleString("id-ID", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
+      device: j.device ?? undefined,
     }));
   } catch (error) {
     console.error("Error in getJudges:", error);
@@ -361,7 +378,7 @@ export async function getMatches(): Promise<Match[]> {
         ? `${String(m.scheduledTime.getUTCHours()).padStart(2, "0")}:${String(
             m.scheduledTime.getUTCMinutes()
           ).padStart(2, "0")} WIB`
-        : "10:30 WIB";
+        : "Belum ditentukan";
 
       return {
         id: m.id,
@@ -525,37 +542,44 @@ export async function createMatchAction(data: {
     if (!tournament) throw new Error("Turnamen tidak ditemukan.");
 
     // Find arena
-    let arena = await prisma.arena.findFirst({
+    const arena = await prisma.arena.findFirst({
       where: {
         tournamentId: tournament.id,
         arenaCode: data.arenaId,
       },
     });
 
-    if (!arena) {
-      arena = await prisma.arena.findFirst({
-        where: { tournamentId: tournament.id },
-      });
-    }
-
     if (!arena) throw new Error("Gelanggang tidak ditemukan.");
 
-    // Find category
-    let category = data.categoryId
-      ? await prisma.category.findUnique({ where: { id: data.categoryId } })
-      : await prisma.category.findFirst({ where: { tournamentId: tournament.id } });
+    const [redAthlete, blueAthlete] = await Promise.all([
+      prisma.athlete.findUnique({
+        where: { id: data.redAthleteId },
+        include: { contingent: true },
+      }),
+      prisma.athlete.findUnique({
+        where: { id: data.blueAthleteId },
+        include: { contingent: true },
+      }),
+    ]);
 
-    if (!category) {
-      category = await prisma.category.create({
-        data: {
-          tournamentId: tournament.id,
-          name: data.categoryName || "TANDING - KELAS A PUTRA",
-          categoryClass: "KELAS A (45-50 kg)",
-          gender: "PUTRA",
-          type: "TANDING",
-        },
-      });
+    if (!redAthlete || !blueAthlete) throw new Error("Atlet tidak ditemukan.");
+    if (
+      redAthlete.contingent.tournamentId !== tournament.id ||
+      blueAthlete.contingent.tournamentId !== tournament.id
+    ) {
+      throw new Error("Atlet tidak terdaftar pada turnamen ini.");
     }
+    if (redAthlete.categoryId !== blueAthlete.categoryId) {
+      throw new Error("Kedua atlet harus berada pada kategori yang sama.");
+    }
+    if (data.categoryId && data.categoryId !== redAthlete.categoryId) {
+      throw new Error("Kategori pertandingan tidak sesuai dengan kategori atlet.");
+    }
+
+    const category = await prisma.category.findFirst({
+      where: { id: redAthlete.categoryId, tournamentId: tournament.id },
+    });
+    if (!category) throw new Error("Kategori atlet tidak ditemukan pada turnamen ini.");
 
     const stageVal = data.stage || "PENYISIHAN";
 
@@ -570,11 +594,11 @@ export async function createMatchAction(data: {
         blueAthleteId: data.blueAthleteId,
         status: "SCHEDULED",
         currentRound: 1,
-        totalRounds: 3,
-        roundDurationSeconds: 120,
-        timeRemainingSeconds: 120,
+        totalRounds: category.roundCount,
+        roundDurationSeconds: category.roundDurationSeconds,
+        timeRemainingSeconds: category.roundDurationSeconds,
         timerStatus: "READY",
-        scheduledTime: data.scheduledTime ? new Date(data.scheduledTime) : new Date(),
+        scheduledTime: parseScheduledDate(data.scheduledTime),
       },
       include: {
         arena: true,

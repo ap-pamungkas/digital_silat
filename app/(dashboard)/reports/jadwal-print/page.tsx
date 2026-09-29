@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useScoring, useDashboard } from "@/hooks";
+import { useScoring, useDashboard, useArenas } from "@/hooks";
 import { Button } from "@/components/ui/Button";
 import { Printer, ArrowLeft, Trophy, Calendar, MapPin } from "lucide-react";
 
 export default function JadwalPrintPage() {
   const { matches } = useScoring();
+  const { arenas } = useArenas();
   const { tournament } = useDashboard();
   const [selectedArena, setSelectedArena] = React.useState<string>("ALL");
 
@@ -43,10 +44,9 @@ export default function JadwalPrintPage() {
             className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-[#273649] bg-white dark:bg-[#122033] text-sm text-slate-900 dark:text-white"
           >
             <option value="ALL">Semua Gelanggang</option>
-            <option value="ARENA-01">Gelanggang 1 (ARENA-01)</option>
-            <option value="ARENA-02">Gelanggang 2 (ARENA-02)</option>
-            <option value="ARENA-03">Gelanggang 3 (ARENA-03)</option>
-            <option value="ARENA-04">Gelanggang 4 (ARENA-04)</option>
+            {arenas.map((arena) => (
+              <option key={arena.id} value={arena.id}>{arena.name} ({arena.id})</option>
+            ))}
           </select>
 
           <Button variant="primary" size="sm" onClick={handlePrint}>
@@ -64,21 +64,21 @@ export default function JadwalPrintPage() {
             IKATAN PENCAK SILAT INDONESIA (IPSI)
           </div>
           <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 print:text-black mt-1">
-            {tournament.name || "KEJUARAAN PENCAK SILAT"}
+            {tournament.id === "TOUR-DEFAULT" ? "BELUM ADA TURNAMEN" : tournament.name}
           </h1>
           <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-700 print:text-black mt-1.5">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 inline print:hidden" />
-              {tournament.location}
+              {tournament.id === "TOUR-DEFAULT" ? "—" : tournament.location}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 inline print:hidden" />
-              {tournament.startDate} - {tournament.endDate}
+              {tournament.id === "TOUR-DEFAULT" ? "—" : `${tournament.startDate} - ${tournament.endDate}`}
             </span>
           </div>
           <div className="mt-2 inline-block px-3 py-0.5 rounded bg-slate-100 print:bg-transparent border border-slate-300 print:border-black text-xs font-bold uppercase">
-            JADWAL PERTANDINGAN KATEGORI TANDING {selectedArena !== "ALL" ? `— ${selectedArena}` : ""}
+            JADWAL PERTANDINGAN KATEGORI TANDING {selectedArena !== "ALL" ? `— ${arenas.find((arena) => arena.id === selectedArena)?.name ?? selectedArena}` : ""}
           </div>
         </div>
 

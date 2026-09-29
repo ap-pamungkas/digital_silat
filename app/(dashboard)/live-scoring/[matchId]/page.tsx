@@ -26,7 +26,7 @@ import {
 
 export default function OperatorLiveScoringPage() {
   const params = useParams();
-  const matchId = (params?.matchId as string) || "M-001";
+  const matchId = typeof params?.matchId === "string" ? params.matchId : "";
   const { toast } = useToast();
 
   const {
@@ -53,7 +53,15 @@ export default function OperatorLiveScoringPage() {
     }
   }, [matchId, activeMatch.id, setActiveMatchId]);
 
-  const current = matches.find((m) => m.id === matchId) || activeMatch;
+  const current = matches.find((match) => match.id === matchId);
+
+  if (!current) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
+        Pertandingan tidak ditemukan di database.
+      </div>
+    );
+  }
 
   const handleEndMatch = () => {
     endMatch(

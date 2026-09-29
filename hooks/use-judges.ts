@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { apiClient } from "@/lib/api";
 import { Judge } from "@/lib/types";
 
-export function useJudges(initialArenaId = "ARENA-01") {
+export function useJudges(initialArenaId = "") {
   const [judges, setJudges] = useState<Judge[]>([]);
   const [selectedArena, setSelectedArena] = useState<string>(initialArenaId);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,12 +27,16 @@ export function useJudges(initialArenaId = "ARENA-01") {
   }, []);
 
   useEffect(() => {
-    fetchJudges();
+    void Promise.resolve().then(fetchJudges);
   }, [fetchJudges]);
 
+  const effectiveSelectedArena = judges.some((judge) => judge.arenaId === selectedArena)
+    ? selectedArena
+    : judges[0]?.arenaId ?? "";
+
   const arenaJudges = useMemo(() => {
-    return judges.filter((j) => j.arenaId === selectedArena);
-  }, [judges, selectedArena]);
+    return judges.filter((j) => j.arenaId === effectiveSelectedArena);
+  }, [judges, effectiveSelectedArena]);
 
   const onlineCount = useMemo(() => {
     return judges.filter((j) => j.status === "ONLINE").length;
@@ -41,7 +45,7 @@ export function useJudges(initialArenaId = "ARENA-01") {
   return {
     judges,
     arenaJudges,
-    selectedArena,
+    selectedArena: effectiveSelectedArena,
     setSelectedArena,
     onlineCount,
     totalCount: judges.length,

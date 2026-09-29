@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useJudges } from "@/hooks";
+import { useArenas, useJudges } from "@/hooks";
 import { JudgeCard } from "@/components/judge/JudgeCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { UserCheck, ShieldCheck } from "lucide-react";
 
 export default function JudgesPage() {
+  const { arenas } = useArenas();
   const {
     judges,
     arenaJudges,
@@ -14,7 +15,7 @@ export default function JudgesPage() {
     setSelectedArena,
     onlineCount,
     totalCount,
-  } = useJudges("ARENA-01");
+  } = useJudges();
 
   return (
     <div className="space-y-6">
@@ -22,10 +23,10 @@ export default function JudgesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-[#d5e3fd] flex items-center gap-2 leading-7">
             <UserCheck className="w-6 h-6 text-emerald-600 dark:text-[#22C55E]" />
-            Monitoring Wasit Juri (5 Juri / Arena)
+            Monitoring Wasit Juri
           </h1>
           <p className="text-sm text-slate-600 dark:text-[#d3c5ac] mt-1">
-            Status real-time 5 wasit juri pertandingan, koneksi, level baterai, dan responsivitas
+            Status juri pertandingan, koneksi, level baterai, dan responsivitas dari database
           </p>
         </div>
 
@@ -39,12 +40,11 @@ export default function JudgesPage() {
       </div>
 
       <Tabs
-        tabs={[
-          { id: "ARENA-01", label: "Gelanggang 1 (A)", count: judges.filter((j) => j.arenaId === "ARENA-01").length || 5 },
-          { id: "ARENA-02", label: "Gelanggang 2 (B)", count: judges.filter((j) => j.arenaId === "ARENA-02").length || 5 },
-          { id: "ARENA-03", label: "Gelanggang 3 (C)", count: judges.filter((j) => j.arenaId === "ARENA-03").length || 5 },
-          { id: "ARENA-04", label: "Gelanggang 4 (D)", count: judges.filter((j) => j.arenaId === "ARENA-04").length || 5 },
-        ]}
+        tabs={arenas.map((arena) => ({
+          id: arena.id,
+          label: arena.name,
+          count: judges.filter((judge) => judge.arenaId === arena.id).length,
+        }))}
         activeTab={selectedArena}
         onChange={setSelectedArena}
       />
@@ -54,6 +54,16 @@ export default function JudgesPage() {
           <JudgeCard key={`${judge.id}-${judge.arenaId}-${idx}`} judge={judge} />
         ))}
       </div>
+
+      {arenas.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-8 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
+          Belum ada data gelanggang di database.
+        </p>
+      ) : arenaJudges.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-8 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
+          Belum ada juri yang terdaftar untuk gelanggang ini.
+        </p>
+      ) : null}
 
       <div className="p-5 rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] flex items-start gap-4 shadow-xs transition-colors">
         <ShieldCheck className="w-6 h-6 text-amber-600 dark:text-[#ffd165] shrink-0 mt-0.5" />

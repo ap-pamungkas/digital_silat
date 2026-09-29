@@ -7,13 +7,17 @@ import { formatTime, cn } from "@/lib/utils";
 
 function ObsOverlayContent() {
   const params = useParams();
-  const arenaId = (params?.arenaId as string) || "ARENA-01";
+  const arenaId = typeof params?.arenaId === "string" ? params.arenaId : "";
   const { matches } = useScoring();
 
   const match =
-    matches.find((m) => m.arenaId === arenaId && m.status !== "FINISHED") ||
-    matches.find((m) => m.arenaId === arenaId) ||
-    matches[0];
+    matches.find((item) => item.arenaId === arenaId && item.status === "LIVE") ||
+    matches.find((item) => item.arenaId === arenaId && ["READY", "SCHEDULED"].includes(item.status)) ||
+    matches.filter((item) => item.arenaId === arenaId).at(-1);
+
+  if (!match) {
+    return <div className="w-screen h-screen bg-transparent" />;
+  }
 
   return (
     <div className="relative w-screen h-screen bg-transparent select-none p-6 flex flex-col justify-between font-sans">

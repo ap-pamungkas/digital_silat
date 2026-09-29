@@ -2,20 +2,21 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useScoring, useMatches, useAthletes, useToast } from "@/hooks";
+import { useScoring, useMatches, useAthletes, useArenas, useToast } from "@/hooks";
 import { MatchCard } from "@/components/match/MatchCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
 import { Tabs } from "@/components/ui/Tabs";
-import { Swords, Search, Radio, Plus, Printer, Calendar } from "lucide-react";
+import { Swords, Search, Radio, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function MatchesPage() {
   const { toast } = useToast();
   const { matches, refreshMatches } = useScoring();
   const { athletes } = useAthletes();
+  const { arenas } = useArenas();
 
   const {
     filteredMatches,
@@ -32,20 +33,21 @@ export default function MatchesPage() {
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [matchNumber, setMatchNumber] = React.useState("");
-  const [arenaId, setArenaId] = React.useState("ARENA-01");
-  const [categoryName, setCategoryName] = React.useState("TANDING - KELAS A PUTRA");
+  const [arenaId, setArenaId] = React.useState("");
   const [stage, setStage] = React.useState<"PENYISIHAN" | "PEREMPAT_FINAL" | "SEMI_FINAL" | "FINAL">("PENYISIHAN");
   const [redAthleteId, setRedAthleteId] = React.useState("");
   const [blueAthleteId, setBlueAthleteId] = React.useState("");
+  const selectedRedAthleteId = athletes.some((athlete) => athlete.id === redAthleteId)
+    ? redAthleteId
+    : athletes[0]?.id ?? "";
+  const selectedBlueAthleteId = athletes.some((athlete) => athlete.id === blueAthleteId)
+    ? blueAthleteId
+    : athletes[1]?.id ?? "";
   const [scheduledTime, setScheduledTime] = React.useState("10:00");
-
-  // Default selection for athletes if available
-  React.useEffect(() => {
-    if (athletes.length >= 2) {
-      if (!redAthleteId) setRedAthleteId(athletes[0].id);
-      if (!blueAthleteId) setBlueAthleteId(athletes[1].id);
-    }
-  }, [athletes, redAthleteId, blueAthleteId]);
+  const selectedArenaId = arenas.some((arena) => arena.id === arenaId)
+    ? arenaId
+    : arenas[0]?.id ?? "";
+  const liveMatch = matches.find((match) => match.status === "LIVE");
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,13 +56,15 @@ export default function MatchesPage() {
       toast.warning("Lengkapi Data", "Nomor partai wajib diisi (contoh: 025).");
       return;
     }
-
-    if (!redAthleteId || !blueAthleteId) {
+    if (!selectedArenaId) {
+      toast.warning("Gelanggang Tidak Tersedia", "Pilih gelanggang yang terdaftar di database.");
+      return;
+    }
+    if (!selectedRedAthleteId || !selectedBlueAthleteId) {
       toast.warning("Lengkapi Atlet", "Pilih pesilat untuk sudut merah dan sudut biru.");
       return;
     }
-
-    if (redAthleteId === blueAthleteId) {
+    if (selectedRedAthleteId === selectedBlueAthleteId) {
       toast.warning("Atlet Sama", "Sudut Merah dan Sudut Biru tidak boleh atlet yang sama.");
       return;
     }
@@ -68,24 +72,24 @@ export default function MatchesPage() {
     try {
       await createMatch({
         matchNumber: matchNumber.trim(),
-        arenaId,
-        categoryName,
+        arenaId: selectedArenaId,
         stage,
-        redAthleteId,
-        blueAthleteId,
+        redAthleteId: selectedRedAthleteId,
+        blueAthleteId: selectedBlueAthleteId,
+        scheduledTime,
       });
 
       toast.success(
         "Partai Berhasil Dibuat",
-        `Partai #${matchNumber} telah ditambahkan ke jadwal ${arenaId}.`
+        `Partai #${matchNumber} telah ditambahkan ke jadwal ${selectedArenaId}.`
       );
 
       setIsCreateOpen(false);
       setMatchNumber("");
-    } catch (err: any) {
+    } catch (error: unknown) {
       toast.error(
         "Gagal Membuat Partai",
-        err.message || "Terjadi kesalahan saat memproses data ke server."
+        error instanceof Error ? error.message : "Terjadi kesalahan saat memproses data ke server."
       );
     }
   };
@@ -123,12 +127,12 @@ export default function MatchesPage() {
             Tambah Partai Baru
           </Button>
 
-          <Link href="/live-scoring/M-001">
+          {liveMatch ? <Link href={`/live-scoring/${liveMatch.id}`}>
             <Button variant="primary">
               <Radio className="w-4 h-4 mr-2 animate-live" />
               Panel Kontrol Wasit
             </Button>
-          </Link>
+          </Link> : null}
         </div>
       </div>
 
@@ -164,19 +168,19 @@ export default function MatchesPage() {
             >
               Semua Arena
             </button>
-            {["ARENA-01", "ARENA-02", "ARENA-03", "ARENA-04"].map((arenaCode, idx) => (
+            {arenas.map((arena) => (
               <button
-                key={arenaCode}
+                key={arena.id}
                 type="button"
-                onClick={() => setArenaFilter(arenaCode)}
+                onClick={() => setArenaFilter(arena.id)}
                 className={cn(
                   "px-3 py-1.5 rounded-lg font-semibold tabular-nums transition-colors cursor-pointer",
-                  arenaFilter === arenaCode
+                  arenaFilter === arena.id
                     ? "bg-white text-slate-900 dark:bg-[#273649] dark:text-[#ffd165] shadow-xs border border-slate-200/60 dark:border-[#4f4633]"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-[#94A3B8] dark:hover:bg-[#1c2b3e] dark:hover:text-white"
                 )}
               >
-                Gel {idx + 1}
+                {arena.name}
               </button>
             ))}
           </div>
@@ -221,36 +225,28 @@ export default function MatchesPage() {
               onChange={(e) => setMatchNumber(e.target.value)}
               required
             />
+            <Input
+              label="Waktu Tanding"
+              type="time"
+              value={scheduledTime}
+              onChange={(e) => setScheduledTime(e.target.value)}
+              required
+            />
             <Select
               label="Gelanggang"
-              value={arenaId}
+              value={selectedArenaId}
               onChange={(e) => setArenaId(e.target.value)}
-              options={[
-                { value: "ARENA-01", label: "Gelanggang 1 (ARENA-01)" },
-                { value: "ARENA-02", label: "Gelanggang 2 (ARENA-02)" },
-                { value: "ARENA-03", label: "Gelanggang 3 (ARENA-03)" },
-                { value: "ARENA-04", label: "Gelanggang 4 (ARENA-04)" },
-              ]}
+              options={arenas.map((arena) => ({ value: arena.id, label: `${arena.name} (${arena.id})` }))}
+              required
+              disabled={arenas.length === 0}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Select
-              label="Kelas Kategori"
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              options={[
-                { value: "TANDING - KELAS A PUTRA", label: "Tanding - Kelas A Putra" },
-                { value: "TANDING - KELAS B PUTRA", label: "Tanding - Kelas B Putra" },
-                { value: "TANDING - KELAS C PUTRA", label: "Tanding - Kelas C Putra" },
-                { value: "TANDING - KELAS A PUTRI", label: "Tanding - Kelas A Putri" },
-                { value: "TANDING - KELAS B PUTRI", label: "Tanding - Kelas B Putri" },
-              ]}
-            />
-            <Select
               label="Babak Pertandingan"
               value={stage}
-              onChange={(e) => setStage(e.target.value as any)}
+              onChange={(e) => setStage(e.target.value as typeof stage)}
               options={[
                 { value: "PENYISIHAN", label: "Babak Penyisihan" },
                 { value: "PEREMPAT_FINAL", label: "Perempat Final" },
@@ -266,7 +262,7 @@ export default function MatchesPage() {
                 Pesilat Sudut Merah
               </label>
               <select
-                value={redAthleteId}
+                value={selectedRedAthleteId}
                 onChange={(e) => setRedAthleteId(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-red-300 dark:border-red-500/40 bg-red-50/50 dark:bg-red-950/20 text-sm text-slate-900 dark:text-white"
                 required
@@ -285,7 +281,7 @@ export default function MatchesPage() {
                 Pesilat Sudut Biru
               </label>
               <select
-                value={blueAthleteId}
+                value={selectedBlueAthleteId}
                 onChange={(e) => setBlueAthleteId(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-blue-300 dark:border-blue-500/40 bg-blue-50/50 dark:bg-blue-950/20 text-sm text-slate-900 dark:text-white"
                 required

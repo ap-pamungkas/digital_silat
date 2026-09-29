@@ -51,7 +51,10 @@ export default function ArenasPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {arenas.map((arena, idx) => {
-            const currentMatch = matches.find((m) => m.arenaId === arena.id && m.status !== "FINISHED") || matches.find((m) => m.arenaId === arena.id);
+            const currentMatch =
+              matches.find((match) => match.id === arena.currentMatchId) ||
+              matches.find((match) => match.arenaId === arena.id && match.status === "LIVE") ||
+              matches.find((match) => match.arenaId === arena.id && ["READY", "SCHEDULED"].includes(match.status));
 
             return (
               <div
@@ -77,7 +80,7 @@ export default function ArenasPage() {
                   variant={arena.status === "ACTIVE" ? "live" : "default"}
                   size="md"
                 >
-                  {arena.status === "ACTIVE" ? "Aktif" : "Siap"}
+                  {arena.status === "ACTIVE" ? "Aktif" : arena.status === "MAINTENANCE" ? "Pemeliharaan" : "Siap"}
                 </Badge>
               </div>
 
@@ -134,15 +137,15 @@ export default function ArenasPage() {
                 <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
                   <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#122033] border border-slate-200 dark:border-[#273649] text-center">
                     <div className="text-slate-500 dark:text-[#64748B]">Wasit Juri</div>
-                    <div className="font-bold text-emerald-600 dark:text-[#22C55E] mt-0.5 tabular-nums">5 / 5</div>
+                    <div className="font-bold text-emerald-600 dark:text-[#22C55E] mt-0.5 tabular-nums">{arena.connectedJudgesCount} / {arena.totalJudgesCount}</div>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#122033] border border-slate-200 dark:border-[#273649] text-center">
                     <div className="text-slate-500 dark:text-[#64748B]">Layar TV</div>
-                    <div className="font-bold text-emerald-600 dark:text-[#22C55E] mt-0.5">Online</div>
+                    <div className={`font-bold mt-0.5 ${arena.displayConnected ? "text-emerald-600 dark:text-[#22C55E]" : "text-slate-500 dark:text-[#94A3B8]"}`}>{arena.displayConnected ? "Online" : "Offline"}</div>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#122033] border border-slate-200 dark:border-[#273649] text-center">
                     <div className="text-slate-500 dark:text-[#64748B]">OBS HUD</div>
-                    <div className="font-bold text-purple-600 dark:text-[#A855F7] mt-0.5">Online</div>
+                    <div className={`font-bold mt-0.5 ${arena.obsConnected ? "text-emerald-600 dark:text-[#22C55E]" : "text-slate-500 dark:text-[#94A3B8]"}`}>{arena.obsConnected ? "Online" : "Offline"}</div>
                   </div>
                 </div>
               </div>

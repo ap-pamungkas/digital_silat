@@ -10,10 +10,18 @@ import { ArrowLeft, ArrowRight, ShieldCheck, Trophy } from "lucide-react";
 
 export default function JudgeMatchBriefingPage() {
   const params = useParams();
-  const matchId = (params?.matchId as string) || "M-001";
+  const matchId = typeof params?.matchId === "string" ? params.matchId : "";
   const { matches, currentJudgeNumber } = useScoring();
 
-  const match = matches.find((m) => m.id === matchId) || matches[0];
+  const match = matches.find((item) => item.id === matchId);
+
+  if (!match) {
+    return (
+      <div className="mx-auto max-w-md py-12 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
+        Pertandingan tidak ditemukan di database.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-md mx-auto py-4">
@@ -39,7 +47,7 @@ export default function JudgeMatchBriefingPage() {
           {match.category}
         </h1>
         <p className="text-xs font-medium text-[#FCD34D]">
-          {match.stage} • 3 Babak (2 Menit / Babak)
+          {match.stage} • {match.totalRounds} Babak ({Math.floor(match.roundDurationSeconds / 60)} Menit / Babak)
         </p>
 
         <div className="grid grid-cols-2 gap-3 pt-4 border-t border-[#2A2D36] text-left">

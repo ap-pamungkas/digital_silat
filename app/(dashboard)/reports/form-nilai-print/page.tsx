@@ -9,10 +9,11 @@ import { Printer, ArrowLeft, Shield } from "lucide-react";
 export default function FormNilaiPrintPage() {
   const { matches } = useScoring();
   const { tournament } = useDashboard();
-  const [selectedMatchId, setSelectedMatchId] = React.useState<string>(matches[0]?.id || "M-001");
+  const [selectedMatchId, setSelectedMatchId] = React.useState("");
   const [selectedJudgeNo, setSelectedJudgeNo] = React.useState<number>(1);
 
-  const currentMatch = matches.find((m) => m.id === selectedMatchId) || matches[0];
+  const currentMatch = matches.find((m) => m.id === selectedMatchId) || matches[0] || null;
+  const rounds = currentMatch ? Array.from({ length: currentMatch.totalRounds }, (_, index) => index + 1) : [];
 
   const handlePrint = () => {
     window.print();
@@ -36,10 +37,11 @@ export default function FormNilaiPrintPage() {
 
         <div className="flex items-center gap-3 flex-wrap">
           <select
-            value={selectedMatchId}
+            value={currentMatch?.id ?? ""}
             onChange={(e) => setSelectedMatchId(e.target.value)}
             className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-[#273649] bg-white dark:bg-[#122033] text-sm text-slate-900 dark:text-white"
           >
+            {matches.length === 0 ? <option value="">Tidak ada pertandingan</option> : null}
             {matches.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.matchNumber} ({m.arenaName} - {m.redAthlete.name} vs {m.blueAthlete.name})
@@ -74,10 +76,10 @@ export default function FormNilaiPrintPage() {
             LEMBAR PENILAIAN TANDING PENCAK SILAT (IPSI 2022)
           </div>
           <h1 className="text-lg sm:text-xl font-black uppercase text-slate-900 print:text-black mt-0.5">
-            {tournament.name || "KEJUARAAN PENCAK SILAT INDONESIA"}
+            {tournament.id === "TOUR-DEFAULT" ? "BELUM ADA TURNAMEN" : tournament.name}
           </h1>
           <div className="text-xs font-semibold text-slate-600 print:text-black">
-            {tournament.location} • {tournament.startDate} - {tournament.endDate}
+            {tournament.id === "TOUR-DEFAULT" ? "—" : `${tournament.location} • ${tournament.startDate} - ${tournament.endDate}`}
           </div>
         </div>
 
@@ -86,21 +88,21 @@ export default function FormNilaiPrintPage() {
           <div>
             <div className="flex gap-2 py-0.5">
               <span className="font-semibold w-24">Gelanggang:</span>
-              <span className="font-bold">{currentMatch?.arenaName || "GELANGGANG 1"}</span>
+              <span className="font-bold">{currentMatch?.arenaName || "—"}</span>
             </div>
             <div className="flex gap-2 py-0.5">
               <span className="font-semibold w-24">Nomor Partai:</span>
-              <span className="font-bold">{currentMatch?.matchNumber || "MATCH #001"}</span>
+              <span className="font-bold">{currentMatch?.matchNumber || "—"}</span>
             </div>
             <div className="flex gap-2 py-0.5">
               <span className="font-semibold w-24">Babak:</span>
-              <span>{currentMatch?.stage || "BABAK PENYISIHAN"}</span>
+              <span>{currentMatch?.stage || "—"}</span>
             </div>
           </div>
           <div>
             <div className="flex gap-2 py-0.5">
               <span className="font-semibold w-24">Kelas Tanding:</span>
-              <span className="font-bold">{currentMatch?.category || "TANDING KELAS A PUTRA"}</span>
+              <span className="font-bold">{currentMatch?.category || "—"}</span>
             </div>
             <div className="flex gap-2 py-0.5">
               <span className="font-semibold w-24">Posisi Penilai:</span>
@@ -108,7 +110,7 @@ export default function FormNilaiPrintPage() {
             </div>
             <div className="flex gap-2 py-0.5">
               <span className="font-semibold w-24">Waktu Ronde:</span>
-              <span>3 Babak @ 2 Menit (Istirahat 1 Menit)</span>
+              <span>{currentMatch ? `${currentMatch.totalRounds} Babak @ ${Math.floor(currentMatch.roundDurationSeconds / 60)} Menit` : "—"}</span>
             </div>
           </div>
         </div>
@@ -150,10 +152,10 @@ export default function FormNilaiPrintPage() {
             </tr>
           </thead>
           <tbody>
-            {[1, 2, 3].map((round) => (
+            {rounds.map((round) => (
               <tr key={round} className="h-20 border-b border-black">
                 <td className="border border-black text-center font-bold bg-slate-50 print:bg-transparent">
-                  BABAK {round === 1 ? "I" : round === 2 ? "II" : "III"}
+                  BABAK {round}
                 </td>
 
                 {/* Sudut Merah */}

@@ -37,7 +37,6 @@ export function useMatches(matches: Match[], onRefresh?: () => Promise<void>) {
       matchNumber: string;
       redAthleteId: string;
       blueAthleteId: string;
-      categoryName?: string;
       stage?: "PENYISIHAN" | "PEREMPAT_FINAL" | "SEMI_FINAL" | "FINAL" | "PEREBUTAN_JUARA_3";
       scheduledTime?: string;
     }) => {

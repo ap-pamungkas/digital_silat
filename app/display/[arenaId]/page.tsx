@@ -8,13 +8,24 @@ import { Trophy, ShieldCheck } from "lucide-react";
 
 function DisplayScoreboardContent() {
   const params = useParams();
-  const arenaId = (params?.arenaId as string) || "ARENA-01";
+  const arenaId = typeof params?.arenaId === "string" ? params.arenaId : "";
   const { matches } = useScoring();
 
   const match =
-    matches.find((m) => m.arenaId === arenaId && m.status !== "FINISHED") ||
-    matches.find((m) => m.arenaId === arenaId) ||
-    matches[0];
+    matches.find((item) => item.arenaId === arenaId && item.status === "LIVE") ||
+    matches.find((item) => item.arenaId === arenaId && ["READY", "SCHEDULED"].includes(item.status)) ||
+    matches.filter((item) => item.arenaId === arenaId).at(-1);
+
+  if (!match) {
+    return (
+      <main className="min-h-screen bg-[#0F1115] text-white flex items-center justify-center p-8 text-center">
+        <div>
+          <h1 className="text-2xl font-bold">Belum ada pertandingan di gelanggang ini</h1>
+          <p className="mt-2 text-sm text-slate-400">Data scoreboard akan muncul setelah pertandingan tersedia di database.</p>
+        </div>
+      </main>
+    );
+  }
 
   const isRedWinner = match.status === "FINISHED" && match.winner === "RED";
   const isBlueWinner = match.status === "FINISHED" && match.winner === "BLUE";

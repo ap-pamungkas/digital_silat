@@ -9,8 +9,15 @@ import {
   Layers,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { getDashboardData } from "@/lib/data-service";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const { tournament, arenas, matches } = await getDashboardData();
+  const activeArenaCount = arenas.filter((arena) => arena.status === "ACTIVE").length;
+  const firstArena = arenas[0];
+
   return (
     <div className="min-h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col selection:bg-amber-500 selection:text-white dark:selection:bg-[#eab308] dark:selection:text-[#604700] transition-colors">
       {/* Top Header */}
@@ -63,7 +70,7 @@ export default function HomePage() {
             Digital Pencak Silat Scoring System
           </h1>
           <p className="text-sm sm:text-base text-slate-600 dark:text-[#d3c5ac] leading-relaxed">
-            Sistem kontrol pertandingan dan penilaian digital terpadu untuk Kejuaraan Pencak Silat Ale-Ale 2026.
+            Sistem kontrol pertandingan dan penilaian digital terpadu{tournament ? ` untuk ${tournament.name}.` : "."}
             Pilih modul sistem di bawah untuk memulai.
           </p>
         </div>
@@ -111,7 +118,7 @@ export default function HomePage() {
           </Link>
 
           <Link
-            href="/display/ARENA-01"
+            href={firstArena ? `/display/${firstArena.id}` : "/arenas"}
             target="_blank"
             className="group rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-5 flex flex-col transition-all hover:border-emerald-400 dark:hover:border-[#4ade80]/50 shadow-xs relative overflow-hidden"
           >
@@ -132,7 +139,7 @@ export default function HomePage() {
           </Link>
 
           <Link
-            href="/overlay/ARENA-01"
+            href={firstArena ? `/overlay/${firstArena.id}` : "/arenas"}
             target="_blank"
             className="group rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-5 flex flex-col transition-all hover:border-purple-400 dark:hover:border-[#c084fc]/50 shadow-xs relative overflow-hidden"
           >
@@ -161,23 +168,26 @@ export default function HomePage() {
               Akses Langsung Per Gelanggang
             </h3>
             <span className="text-xs text-emerald-700 dark:text-[#4ade80] font-bold px-2 py-0.5 bg-emerald-50 dark:bg-[#14532d]/40 rounded border border-emerald-200 dark:border-[#166534]">
-              3 Gelanggang Aktif
+              {activeArenaCount} Gelanggang Aktif
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            {[
-              { id: "ARENA-01", name: "Gelanggang A", match: "Partai #023 (Kelas A Putra)" },
-              { id: "ARENA-02", name: "Gelanggang B", match: "Partai #024 (Kelas B Putra)" },
-              { id: "ARENA-03", name: "Gelanggang C", match: "Partai #025 (Kelas C Putri)" },
-            ].map((arena) => (
+            {arenas.map((arena) => {
+              const match = matches.find((item) => item.id === arena.currentMatchId) ||
+                matches.find((item) => item.arenaId === arena.id && item.status === "LIVE") ||
+                matches.find((item) => item.arenaId === arena.id && ["READY", "SCHEDULED"].includes(item.status));
+
+              return (
               <div
                 key={arena.id}
                 className="p-4 rounded-xl bg-slate-50 dark:bg-[#122033] border border-slate-200 dark:border-[#273649]"
               >
                 <div className="mb-3">
                   <div className="text-sm font-bold text-slate-900 dark:text-[#d5e3fd]">{arena.name}</div>
-                  <div className="text-xs text-amber-700 dark:text-[#ffd165] font-medium mt-0.5">{arena.match}</div>
+                  <div className="text-xs text-amber-700 dark:text-[#ffd165] font-medium mt-0.5">
+                    {match ? `${match.matchNumber} (${match.category})` : "Belum ada partai aktif"}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -197,14 +207,20 @@ export default function HomePage() {
                   </Link>
                 </div>
               </div>
-            ))}
+              );
+            })}
+            {arenas.length === 0 ? (
+              <p className="col-span-full py-6 text-center text-sm text-slate-500 dark:text-[#94a3b8]">
+                Belum ada data gelanggang di database.
+              </p>
+            ) : null}
           </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-[#273649] py-5 px-6 text-center text-xs text-slate-500 dark:text-[#94a3b8] transition-colors">
-        PAGAR • Sistem Scoring Pencak Silat — Ale-Ale Edition (Ketapang, Kalimantan Barat)
+        PAGAR • Sistem Scoring Pencak Silat{tournament ? ` — ${tournament.name} (${tournament.location})` : ""}
       </footer>
     </div>
   );

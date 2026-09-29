@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useScoring } from "@/lib/scoring-store";
+import { useJudges } from "@/hooks";
 import { JudgeStatus } from "@/components/judge/JudgeStatus";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -12,6 +13,11 @@ import { cn } from "@/lib/utils";
 
 export default function JudgeHomePage() {
   const { activeMatch, currentJudgeNumber, setCurrentJudgeNumber } = useScoring();
+  const { judges } = useJudges();
+  const currentJudge = judges.find((judge) =>
+    judge.judgeNumber === currentJudgeNumber &&
+    (!activeMatch.arenaId || judge.arenaId === activeMatch.arenaId)
+  ) ?? judges.find((judge) => judge.judgeNumber === currentJudgeNumber);
 
   return (
     <div className="space-y-5 pb-8">
@@ -22,21 +28,23 @@ export default function JudgeHomePage() {
           </div>
           <div>
             <div className="text-sm font-bold text-slate-900 dark:text-white leading-5">
-              Juri {currentJudgeNumber}
+              {currentJudge?.name ?? `Juri ${currentJudgeNumber}`}
             </div>
             <div className="text-xs text-slate-500 dark:text-[#94A3B8]">
-              {activeMatch.arenaName}
+              {activeMatch.id === "NO_MATCH" ? "Belum ada gelanggang aktif" : activeMatch.arenaName}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <div className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 dark:bg-[#22C55E]/10 dark:text-[#86EFAC] px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-[#22C55E]/25 tabular-nums font-semibold">
-            <Battery className="w-3.5 h-3.5" />
-            <span>94%</span>
-          </div>
-          <JudgeStatus status="ONLINE" pingMs={18} showText={false} />
+          {currentJudge?.batteryLevel !== undefined ? (
+            <div className="flex items-center gap-1.5 text-xs bg-slate-50 text-slate-700 dark:bg-[#122033] dark:text-[#d5e3fd] px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#273649] tabular-nums font-semibold">
+              <Battery className="w-3.5 h-3.5" />
+              <span>{currentJudge.batteryLevel}%</span>
+            </div>
+          ) : null}
+          <JudgeStatus status={currentJudge?.status ?? "OFFLINE"} pingMs={currentJudge?.pingMs} showText={false} />
         </div>
       </div>
 

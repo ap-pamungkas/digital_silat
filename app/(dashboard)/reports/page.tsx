@@ -127,7 +127,7 @@ export default function ReportsPage() {
               Lembar Rekap Hasil Pertandingan Resmi
             </h2>
             <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-1 tabular-nums">
-              {tournament.name} • {tournament.location}
+              {tournament.id === "TOUR-DEFAULT" ? "Belum ada turnamen terdaftar" : `${tournament.name} • ${tournament.location}`}
             </p>
           </div>
           <Badge variant="success" size="md">
