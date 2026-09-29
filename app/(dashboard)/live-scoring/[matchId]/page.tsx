@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useScoring, useToast } from "@/hooks";
 import { ScoreBoard } from "@/components/scoring/ScoreBoard";
 import { ScoreEventList } from "@/components/scoring/ScoreEventList";
 import { PenaltyDialog } from "@/components/scoring/PenaltyDialog";
+import { JudgeSessionManager } from "@/components/judge/JudgeSessionManager";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
@@ -26,6 +27,7 @@ import {
 
 export default function OperatorLiveScoringPage() {
   const params = useParams();
+      const router = useRouter();
   const matchId = typeof params?.matchId === "string" ? params.matchId : "";
   const { toast } = useToast();
 
@@ -45,7 +47,8 @@ export default function OperatorLiveScoringPage() {
 
   const [isPenaltyOpen, setIsPenaltyOpen] = React.useState(false);
   const [isEndMatchConfirmOpen, setIsEndMatchConfirmOpen] = React.useState(false);
-  const [selectedWinner, setSelectedWinner] = React.useState<"RED" | "BLUE" | "DRAW">("RED");
+  const [selectedWinner, setSelectedWinner] = React.useState<"RED" | "BLUE">("RED");
+  const [isFinishingMatch, setIsFinishingMatch] = React.useState(false);
 
   React.useEffect(() => {
     if (matchId && matchId !== activeMatch.id) {
@@ -63,18 +66,24 @@ export default function OperatorLiveScoringPage() {
     );
   }
 
-  const handleEndMatch = () => {
-    endMatch(
-      selectedWinner === "DRAW" ? undefined : selectedWinner,
-      selectedWinner === "RED"
-        ? `Sudut Merah Menang (${current.redAthlete.name})`
-        : `Sudut Biru Menang (${current.blueAthlete.name})`
-    );
-    toast.success(
-      "Partai Telah Diselesaikan",
-      `Pemenang: ${selectedWinner === "RED" ? current.redAthlete.name : current.blueAthlete.name} (${selectedWinner === "RED" ? "Sudut Merah" : "Sudut Biru"}).`
-    );
-    setIsEndMatchConfirmOpen(false);
+  const handleEndMatch = async () => {
+    setIsFinishingMatch(true);
+    try {
+      await endMatch(selectedWinner, "MENANG_ANGKA");
+      toast.success(
+        "Partai Telah Diselesaikan",
+        `Pemenang: ${selectedWinner === "RED" ? current.redAthlete.name : current.blueAthlete.name}.`
+      );
+      setIsEndMatchConfirmOpen(false);
+      router.push("/matches");
+    } catch (error) {
+      toast.error(
+        "Partai Gagal Diselesaikan",
+        error instanceof Error ? error.message : "Hasil pertandingan belum tersimpan."
+      );
+    } finally {
+      setIsFinishingMatch(false);
+    }
   };
 
   const handlePenalty = (corner: Corner, type: PenaltyType, points: number, note?: string) => {
@@ -85,26 +94,68 @@ export default function OperatorLiveScoringPage() {
     );
   };
 
-  const handleToggleTimer = () => {
+  const handleToggleTimer = async () => {
     const isRunning = current.timerStatus === "RUNNING";
-    toggleTimer();
-    toast.info(isRunning ? "Waktu Dijeda (PAUSED)" : "Waktu Berjalan (RUNNING)");
+    if (!isRunning && (current.status === "FINISHED" || current.timeRemainingSeconds === 0)) {
+      toast.warning("Timer Selesai", "Atur babak berikutnya atau reset timer sebelum memulai lagi.");
+      return;
+    }
+    try {
+      await toggleTimer();
+      toast.info(isRunning ? "Waktu Dijeda (PAUSED)" : "Waktu Berjalan (RUNNING)");
+    } catch (error) {
+      toast.error("Timer Gagal Diperbarui", error instanceof Error ? error.message : "Server tidak dapat memperbarui timer.");
+    }
   };
 
-  const handleNextRound = () => {
+  const handleNextRound = async () => {
+    if (current.currentRound >= current.totalRounds) {
+      toast.warning("Babak Terakhir", "Tidak ada babak berikutnya untuk pertandingan ini.");
+      return;
+    }
     const nextR = Math.min(current.totalRounds, current.currentRound + 1);
-    nextRound();
-    toast.info(`Babak ${nextR} Dimulai`, `Durasi waktu babak ${nextR} disiapkan.`);
+    try {
+      await nextRound();
+      toast.info(`Babak ${nextR} Disiapkan`, `Durasi waktu babak ${nextR} disiapkan.`);
+    } catch (error) {
+      toast.error("Babak Gagal Diperbarui", error instanceof Error ? error.message : "Server tidak dapat memperbarui babak.");
+    }
   };
 
-  const handleVerifyEvent = (eventId: string) => {
-    verifyEvent(eventId);
-    toast.success("Poin Juri Terverifikasi", "Event penilaian telah disahkan ke papan skor.");
+  const handleResetTimer = async () => {
+    try {
+      await resetTimer();
+      toast.info("Timer Direset", `Waktu dikembalikan ke ${current.roundDurationSeconds} detik.`);
+    } catch (error) {
+      toast.error("Reset Timer Gagal", error instanceof Error ? error.message : "Server tidak dapat mereset timer.");
+    }
   };
 
-  const handleRejectEvent = (eventId: string) => {
-    rejectEvent(eventId);
-    toast.warning("Poin Juri Dibatalkan", "Event penilaian telah dikurangi dari skor pertandingan.");
+  const handleVerifyEvent = async (eventId: string) => {
+    try {
+      await verifyEvent(eventId);
+      toast.success("Poin Juri Terverifikasi", "Event penilaian telah disahkan ke papan skor.");
+    } catch (error) {
+      toast.error("Poin Belum Disahkan", error instanceof Error ? error.message : "Server gagal mengesahkan poin.");
+    }
+  };
+
+  const handleRejectEvent = async (eventId: string) => {
+    try {
+      await rejectEvent(eventId);
+      toast.warning("Poin Juri Dibatalkan", "Event penilaian telah ditolak pada server.");
+    } catch (error) {
+      toast.error("Poin Belum Ditolak", error instanceof Error ? error.message : "Server gagal memperbarui event.");
+    }
+  };
+
+  const handleOperatorScore = async (corner: Corner, action: "PUKULAN" | "TENDANGAN" | "JATUHAN", points: number) => {
+    try {
+      await submitScore(corner, action, points);
+      toast.info(`+${points} Poin ${action.toLowerCase()}`, `Masukan sudut ${corner === "RED" ? "Merah" : "Biru"} tersinkron.`);
+    } catch (error) {
+      toast.error("Koreksi Skor Gagal", error instanceof Error ? error.message : "Skor tidak dapat disimpan ke server.");
+    }
   };
 
   return (
@@ -156,9 +207,6 @@ export default function OperatorLiveScoringPage() {
               <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 Meja Putusan Skor Petugas Gelanggang
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Poin dan usulan juri masuk ke meja ini. Petugas gelanggang mengesahkan atau menolak skor sebelum tampil di papan nilai.
-              </p>
             </div>
           </div>
           <Badge
@@ -288,7 +336,8 @@ export default function OperatorLiveScoringPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Button
                 variant={current.timerStatus === "RUNNING" ? "warning" : "success"}
-                onClick={handleToggleTimer}
+                onClick={() => void handleToggleTimer()}
+                disabled={current.status === "FINISHED" || (current.timerStatus !== "RUNNING" && current.timeRemainingSeconds === 0)}
                 className="h-12"
               >
                 {current.timerStatus === "RUNNING" ? (
@@ -297,23 +346,21 @@ export default function OperatorLiveScoringPage() {
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4 mr-2 fill-current" /> Mulai Timer
+                    <Play className="w-4 h-4 mr-2 fill-current" /> {current.timeRemainingSeconds === 0 ? "Waktu Habis" : current.status === "FINISHED" ? "Partai Selesai" : "Mulai Timer"}
                   </>
                 )}
               </Button>
 
               <Button
                 variant="outline"
-                onClick={() => {
-                  resetTimer();
-                  toast.info("Timer Direset", `Waktu dikembalikan ke ${current.roundDurationSeconds} detik.`);
-                }}
+                onClick={() => void handleResetTimer()}
+                disabled={current.status === "FINISHED"}
                 className="h-12"
               >
                 <RotateCcw className="w-4 h-4 mr-2" /> Reset Timer
               </Button>
 
-              <Button variant="outline" onClick={handleNextRound} className="h-12">
+              <Button variant="outline" onClick={() => void handleNextRound()} disabled={current.status === "FINISHED" || current.currentRound >= current.totalRounds} className="h-12">
                 <FastForward className="w-4 h-4 mr-2" /> Babak Berikut
               </Button>
 
@@ -323,6 +370,7 @@ export default function OperatorLiveScoringPage() {
                   setSelectedWinner(current.redScore >= current.blueScore ? "RED" : "BLUE");
                   setIsEndMatchConfirmOpen(true);
                 }}
+                disabled={current.status === "FINISHED"}
                 className="h-12"
               >
                 <Flag className="w-4 h-4 mr-2" /> Selesaikan Partai
@@ -340,10 +388,7 @@ export default function OperatorLiveScoringPage() {
                     variant="red"
                     size="sm"
                     className="flex-1"
-                    onClick={() => {
-                      submitScore("RED", "PUKULAN", 1);
-                      toast.info("+1 Poin Pukulan", "Sudut Merah +1");
-                    }}
+                    onClick={() => void handleOperatorScore("RED", "PUKULAN", 1)}
                   >
                     +1
                   </Button>
@@ -351,10 +396,7 @@ export default function OperatorLiveScoringPage() {
                     variant="red"
                     size="sm"
                     className="flex-1"
-                    onClick={() => {
-                      submitScore("RED", "TENDANGAN", 2);
-                      toast.info("+2 Poin Tendangan", "Sudut Merah +2");
-                    }}
+                    onClick={() => void handleOperatorScore("RED", "TENDANGAN", 2)}
                   >
                     +2
                   </Button>
@@ -362,10 +404,7 @@ export default function OperatorLiveScoringPage() {
                     variant="red"
                     size="sm"
                     className="flex-1"
-                    onClick={() => {
-                      submitScore("RED", "JATUHAN", 3);
-                      toast.info("+3 Poin Jatuhan", "Sudut Merah +3");
-                    }}
+                    onClick={() => void handleOperatorScore("RED", "JATUHAN", 3)}
                   >
                     +3
                   </Button>
@@ -390,10 +429,7 @@ export default function OperatorLiveScoringPage() {
                     variant="blue"
                     size="sm"
                     className="flex-1"
-                    onClick={() => {
-                      submitScore("BLUE", "PUKULAN", 1);
-                      toast.info("+1 Poin Pukulan", "Sudut Biru +1");
-                    }}
+                    onClick={() => void handleOperatorScore("BLUE", "PUKULAN", 1)}
                   >
                     +1
                   </Button>
@@ -401,10 +437,7 @@ export default function OperatorLiveScoringPage() {
                     variant="blue"
                     size="sm"
                     className="flex-1"
-                    onClick={() => {
-                      submitScore("BLUE", "TENDANGAN", 2);
-                      toast.info("+2 Poin Tendangan", "Sudut Biru +2");
-                    }}
+                    onClick={() => void handleOperatorScore("BLUE", "TENDANGAN", 2)}
                   >
                     +2
                   </Button>
@@ -412,10 +445,7 @@ export default function OperatorLiveScoringPage() {
                     variant="blue"
                     size="sm"
                     className="flex-1"
-                    onClick={() => {
-                      submitScore("BLUE", "JATUHAN", 3);
-                      toast.info("+3 Poin Jatuhan", "Sudut Biru +3");
-                    }}
+                    onClick={() => void handleOperatorScore("BLUE", "JATUHAN", 3)}
                   >
                     +3
                   </Button>
@@ -443,6 +473,8 @@ export default function OperatorLiveScoringPage() {
               </Button>
             </div>
           </div>
+
+          <JudgeSessionManager matchId={current.id} />
         </div>
 
         <div className="rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-5 flex flex-col justify-between shadow-xs transition-colors">
@@ -481,7 +513,9 @@ export default function OperatorLiveScoringPage() {
 
       <Dialog
         isOpen={isEndMatchConfirmOpen}
-        onClose={() => setIsEndMatchConfirmOpen(false)}
+        onClose={() => {
+          if (!isFinishingMatch) setIsEndMatchConfirmOpen(false);
+        }}
         title="Konfirmasi Selesaikan Partai"
         description="Pilih pemenang dan konfirmasi hasil akhir pertandingan untuk diterbitkan ke rekap turnamen."
       >
@@ -522,11 +556,12 @@ export default function OperatorLiveScoringPage() {
             <Button
               variant="outline"
               onClick={() => setIsEndMatchConfirmOpen(false)}
+              disabled={isFinishingMatch}
               className="flex-1"
             >
               Batal
             </Button>
-            <Button variant="danger" onClick={handleEndMatch} className="flex-1">
+            <Button variant="danger" onClick={() => void handleEndMatch()} isLoading={isFinishingMatch} className="flex-1">
               Selesaikan & Kunci Skor
             </Button>
           </div>

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
 import { DataTable, Column } from "@/components/dashboard/DataTable";
-import { Trophy, Plus, Search, Calendar, MapPin } from "lucide-react";
+import { Trophy, Plus, Search, Calendar, MapPin, LoaderCircle } from "lucide-react";
 
 export default function TournamentsPage() {
   const { toast } = useToast();
@@ -16,13 +16,22 @@ export default function TournamentsPage() {
     filteredTournaments,
     search,
     setSearch,
+    isLoading,
     isSubmitting,
     createTournament,
+    updateTournament,
+    deleteTournament,
   } = useTournaments();
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+  const [isEditOpen, setIsEditOpen] = React.useState(false);
+  const [editingTour, setEditingTour] = React.useState<Tournament | null>(null);
+  const [deletingTour, setDeletingTour] = React.useState<Tournament | null>(null);
+
   const [newTourName, setNewTourName] = React.useState("");
   const [newTourLocation, setNewTourLocation] = React.useState("");
+  const [newTourStartDate, setNewTourStartDate] = React.useState("");
+  const [newTourEndDate, setNewTourEndDate] = React.useState("");
   const [newTourArenas, setNewTourArenas] = React.useState("3");
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -36,6 +45,8 @@ export default function TournamentsPage() {
       const created = await createTournament({
         name: newTourName.trim(),
         location: newTourLocation.trim() || "GOR Utama",
+        startDate: newTourStartDate,
+        endDate: newTourEndDate,
         totalArenas: newTourArenas,
       });
 
@@ -47,6 +58,8 @@ export default function TournamentsPage() {
       setIsCreateOpen(false);
       setNewTourName("");
       setNewTourLocation("");
+      setNewTourStartDate("");
+      setNewTourEndDate("");
     } catch (err) {
       toast.error(
         "Gagal Membuat Kejuaraan",
@@ -54,6 +67,47 @@ export default function TournamentsPage() {
       );
       console.error("Error creating tournament:", err);
     }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTour || !newTourName.trim()) return;
+
+    try {
+      await updateTournament(editingTour.id, {
+        name: newTourName.trim(),
+        location: newTourLocation.trim(),
+        startDate: newTourStartDate,
+        endDate: newTourEndDate,
+      });
+
+      toast.success("Kejuaraan Diperbarui", "Data turnamen berhasil disimpan.");
+      setIsEditOpen(false);
+      setEditingTour(null);
+    } catch {
+      toast.error("Gagal Memperbarui", "Terjadi kesalahan saat update data.");
+    }
+  };
+
+  const confirmDeleteTournament = async () => {
+    if (!deletingTour) return;
+
+    try {
+      await deleteTournament(deletingTour.id);
+      setDeletingTour(null);
+      toast.success("Turnamen dihapus", "Data turnamen telah dihapus.");
+    } catch {
+      toast.error("Gagal menghapus", "Terjadi kesalahan saat menghapus turnamen.");
+    }
+  };
+
+  const openEdit = (tour: Tournament) => {
+    setEditingTour(tour);
+    setNewTourName(tour.name);
+    setNewTourLocation(tour.location);
+    setNewTourStartDate(tour.startDate);
+    setNewTourEndDate(tour.endDate);
+    setIsEditOpen(true);
   };
 
   const columns: Column<Tournament>[] = [
@@ -107,6 +161,19 @@ export default function TournamentsPage() {
         </Badge>
       ),
     },
+    {
+      header: "Aksi",
+      cell: (item) => (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => openEdit(item)}>
+            Edit
+          </Button>
+          <Button variant="danger" size="sm" onClick={() => setDeletingTour(item)}>
+            Hapus
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -115,16 +182,16 @@ export default function TournamentsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-[#d5e3fd] flex items-center gap-2 leading-7">
             <Trophy className="w-6 h-6 text-amber-600 dark:text-[#ffd165]" />
-            Manajemen Kejuaraan / Tournament
+            Turnamen
           </h1>
           <p className="text-sm text-slate-600 dark:text-[#d3c5ac] mt-1">
-            Daftar event turnamen silat, pengaturan jadwal, dan konfigurasi gelanggang
+            Atur jadwal dan arena.
           </p>
         </div>
 
         <Button variant="primary" onClick={() => setIsCreateOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          Buat Kejuaraan Baru
+          Buat Turnamen
         </Button>
       </div>
 
@@ -132,18 +199,29 @@ export default function TournamentsPage() {
         <Search className="w-4 h-4 text-slate-400 dark:text-[#64748B] ml-2" />
         <input
           type="text"
-          placeholder="Cari kejuaraan berdasarkan nama atau lokasi..."
+          placeholder="Cari turnamen..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full bg-transparent text-sm text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400 dark:placeholder:text-[#64748B]"
         />
       </div>
 
-      <DataTable
-        data={filteredTournaments}
-        columns={columns}
-        keyExtractor={(item) => item.id}
-      />
+      {isLoading ? (
+        <div
+          role="status"
+          aria-label="Memuat turnamen"
+          className="flex min-h-48 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 dark:border-[#273649] dark:bg-[#0d1c2f] dark:text-[#cbd5e1]"
+        >
+          <LoaderCircle className="h-5 w-5 animate-spin text-amber-600 dark:text-[#ffd165]" />
+          Memuat turnamen
+        </div>
+      ) : (
+        <DataTable
+          data={filteredTournaments}
+          columns={columns}
+          keyExtractor={(item) => item.id}
+        />
+      )}
 
       <Dialog
         isOpen={isCreateOpen}
@@ -166,6 +244,22 @@ export default function TournamentsPage() {
             onChange={(e) => setNewTourLocation(e.target.value)}
             required
           />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Tanggal Mulai"
+              type="date"
+              value={newTourStartDate}
+              onChange={(e) => setNewTourStartDate(e.target.value)}
+              required
+            />
+            <Input
+              label="Tanggal Selesai"
+              type="date"
+              value={newTourEndDate}
+              onChange={(e) => setNewTourEndDate(e.target.value)}
+              required
+            />
+          </div>
           <Input
             label="Jumlah Gelanggang yang Digunakan"
             type="number"
@@ -176,14 +270,91 @@ export default function TournamentsPage() {
             required
           />
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" type="button" onClick={() => setIsCreateOpen(false)} className="flex-1">
+            <Button variant="outline" type="button" onClick={() => setIsCreateOpen(false)} disabled={isSubmitting} className="flex-1">
               Batal
             </Button>
-            <Button variant="primary" type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? "Menyimpan..." : "Simpan Kejuaraan"}
+            <Button variant="primary" type="submit" isLoading={isSubmitting} className="flex-1">
+              Simpan
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      <Dialog
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        title="Edit Kejuaraan"
+        description="Ubah informasi jadwal atau lokasi kejuaraan."
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <Input
+            label="Nama Kejuaraan / Event"
+            value={newTourName}
+            onChange={(e) => setNewTourName(e.target.value)}
+            required
+          />
+          <Input
+            label="Lokasi / GOR Pertandingan"
+            value={newTourLocation}
+            onChange={(e) => setNewTourLocation(e.target.value)}
+            required
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Tanggal Mulai"
+              type="date"
+              value={newTourStartDate}
+              onChange={(e) => setNewTourStartDate(e.target.value)}
+              required
+            />
+            <Input
+              label="Tanggal Selesai"
+              type="date"
+              value={newTourEndDate}
+              onChange={(e) => setNewTourEndDate(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" type="button" onClick={() => setIsEditOpen(false)} disabled={isSubmitting} className="flex-1">
+              Batal
+            </Button>
+            <Button variant="primary" type="submit" isLoading={isSubmitting} className="flex-1">
+              Perbarui
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        isOpen={deletingTour !== null}
+        onClose={() => {
+          if (!isSubmitting) setDeletingTour(null);
+        }}
+        title="Hapus turnamen?"
+      >
+        <p className="text-sm text-slate-600 dark:text-[#cbd5e1]">
+          <span className="font-bold text-slate-900 dark:text-white">{deletingTour?.name}</span>
+          <br />Data terkait akan terhapus dan tidak dapat dipulihkan.
+        </p>
+        <div className="mt-6 flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setDeletingTour(null)}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            Batal
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => void confirmDeleteTournament()}
+            isLoading={isSubmitting}
+            className="flex-1"
+          >
+            Hapus
+          </Button>
+        </div>
       </Dialog>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { Match } from "@/lib/types";
+import { apiClient, UpdateMatchScheduleDto } from "@/lib/api";
 
 export function useMatches(matches: Match[], onRefresh?: () => Promise<void>) {
   const [search, setSearch] = useState("");
@@ -37,7 +38,8 @@ export function useMatches(matches: Match[], onRefresh?: () => Promise<void>) {
       matchNumber: string;
       redAthleteId: string;
       blueAthleteId: string;
-      stage?: "PENYISIHAN" | "PEREMPAT_FINAL" | "SEMI_FINAL" | "FINAL" | "PEREBUTAN_JUARA_3";
+      stage?: UpdateMatchScheduleDto["stage"];
+      scheduledDate?: string;
       scheduledTime?: string;
     }) => {
       setIsSubmitting(true);
@@ -61,6 +63,34 @@ export function useMatches(matches: Match[], onRefresh?: () => Promise<void>) {
     [onRefresh]
   );
 
+  const updateMatchSchedule = useCallback(
+    async (id: string, payload: UpdateMatchScheduleDto) => {
+      setIsSubmitting(true);
+      try {
+        const result = await apiClient.matches.updateSchedule(id, payload);
+        if (onRefresh) await onRefresh();
+        return result;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [onRefresh]
+  );
+
+  const deleteMatch = useCallback(
+    async (id: string) => {
+      setIsSubmitting(true);
+      try {
+        const result = await apiClient.matches.delete(id);
+        if (onRefresh) await onRefresh();
+        return result;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [onRefresh]
+  );
+
   return {
     filteredMatches,
     search,
@@ -72,5 +102,7 @@ export function useMatches(matches: Match[], onRefresh?: () => Promise<void>) {
     counts,
     isSubmitting,
     createMatch,
+    updateMatchSchedule,
+    deleteMatch,
   };
 }

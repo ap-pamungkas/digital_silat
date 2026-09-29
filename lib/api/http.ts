@@ -28,13 +28,22 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!response.ok) {
     let errorData: unknown;
+    const responseBody = await response.text();
     try {
-      errorData = await response.json();
+      errorData = JSON.parse(responseBody);
     } catch {
-      errorData = await response.text();
+      errorData = responseBody;
     }
+    const responseMessage = typeof errorData === "string"
+      ? errorData.trim()
+      : typeof errorData === "object" && errorData !== null && "error" in errorData && typeof errorData.error === "string"
+        ? errorData.error
+        : typeof errorData === "object" && errorData !== null && "message" in errorData && typeof errorData.message === "string"
+          ? errorData.message
+          : "";
+    const message = responseMessage || `Request to ${endpoint} failed with status ${response.status}`;
     throw new ApiError(
-      `Request to ${endpoint} failed with status ${response.status}`,
+      message,
       response.status,
       errorData
     );

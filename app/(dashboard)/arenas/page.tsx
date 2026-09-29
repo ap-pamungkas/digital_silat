@@ -6,18 +6,118 @@ import { useScoring, useArenas } from "@/hooks";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatTime } from "@/lib/utils";
+import { DataTable, Column } from "@/components/dashboard/DataTable";
+import { Arena } from "@/lib/types";
 import {
   Grid3X3,
   Tv,
   Cast,
   Radio,
-  Clock,
   ExternalLink,
+  LoaderCircle,
 } from "lucide-react";
 
 export default function ArenasPage() {
   const { matches } = useScoring();
-  const { arenas } = useArenas();
+  const { arenas, isLoading } = useArenas();
+
+  const getCurrentMatch = (arena: Arena) =>
+    matches.find((match) => match.id === arena.currentMatchId) ||
+    matches.find((match) => match.arenaId === arena.id && match.status === "LIVE") ||
+    matches.find((match) => match.arenaId === arena.id && ["READY", "SCHEDULED"].includes(match.status));
+
+  const columns: Column<Arena>[] = [
+    {
+      header: "Gelanggang",
+      cell: (arena) => (
+        <div className="min-w-32">
+          <div className="font-bold text-slate-900 dark:text-white">{arena.name}</div>
+          <div className="mt-0.5 text-xs text-slate-500 dark:text-[#94A3B8]">{arena.id}</div>
+        </div>
+      ),
+    },
+    {
+      header: "Status",
+      cell: (arena) => (
+        <Badge variant={arena.status === "ACTIVE" ? "live" : arena.status === "MAINTENANCE" ? "warning" : "default"}>
+          {arena.status === "ACTIVE" ? "Aktif" : arena.status === "MAINTENANCE" ? "Pemeliharaan" : "Siap"}
+        </Badge>
+      ),
+    },
+    {
+      header: "Partai",
+      cell: (arena) => {
+        const match = getCurrentMatch(arena);
+        return match ? (
+          <div className="min-w-36">
+            <div className="font-semibold text-slate-900 dark:text-white">{match.matchNumber}</div>
+            <div className="text-xs text-slate-500 dark:text-[#94A3B8]">{match.category}</div>
+          </div>
+        ) : <span className="text-slate-400">-</span>;
+      },
+    },
+    {
+      header: "Skor",
+      cell: (arena) => {
+        const match = getCurrentMatch(arena);
+        return match ? (
+          <div className="min-w-36 space-y-1 text-xs">
+            <div className="flex justify-between gap-3"><span className="truncate">{match.redAthlete.name}</span><strong className="tabular-nums text-red-600 dark:text-red-400">{match.redScore}</strong></div>
+            <div className="flex justify-between gap-3"><span className="truncate">{match.blueAthlete.name}</span><strong className="tabular-nums text-blue-600 dark:text-blue-400">{match.blueScore}</strong></div>
+          </div>
+        ) : <span className="text-slate-400">-</span>;
+      },
+    },
+    {
+      header: "Babak / Waktu",
+      cell: (arena) => {
+        const match = getCurrentMatch(arena);
+        return match ? (
+          <div className="whitespace-nowrap text-xs">
+            <div>Babak {match.currentRound}/{match.totalRounds}</div>
+            <div className="mt-0.5 font-semibold tabular-nums text-emerald-600 dark:text-[#22C55E]">{formatTime(match.timeRemainingSeconds)}</div>
+          </div>
+        ) : <span className="text-slate-400">-</span>;
+      },
+    },
+    {
+      header: "Juri",
+      className: "text-center",
+      cell: (arena) => <span className="tabular-nums">{arena.connectedJudgesCount}/{arena.totalJudgesCount}</span>,
+    },
+    {
+      header: "Display / OBS",
+      cell: (arena) => (
+        <div className="flex flex-col items-start gap-1">
+          <Badge variant={arena.displayConnected ? "success" : "default"}>TV {arena.displayConnected ? "Online" : "Offline"}</Badge>
+          <Badge variant={arena.obsConnected ? "success" : "default"}>OBS {arena.obsConnected ? "Online" : "Offline"}</Badge>
+        </div>
+      ),
+    },
+    {
+      header: "Aksi",
+      className: "text-right",
+      cell: (arena) => {
+        const match = getCurrentMatch(arena);
+        return (
+          <div className="flex justify-end gap-1">
+            <Link href={`/display/${arena.id}`} target="_blank" title="Buka TV display" aria-label={`Buka TV ${arena.name}`} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-emerald-600 hover:bg-slate-100 dark:hover:bg-[#1c2b3e]">
+              <Tv className="h-4 w-4" />
+              <ExternalLink className="sr-only" />
+            </Link>
+            <Link href={`/overlay/${arena.id}`} target="_blank" title="Buka OBS overlay" aria-label={`Buka OBS ${arena.name}`} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-purple-600 hover:bg-slate-100 dark:hover:bg-[#1c2b3e]">
+              <Cast className="h-4 w-4" />
+            </Link>
+            {match ? (
+              <Link href={`/live-scoring/${match.id}`} title="Kontrol live" aria-label={`Kontrol ${match.matchNumber}`} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-amber-600 hover:bg-slate-100 dark:hover:bg-[#1c2b3e]">
+                <Radio className="h-4 w-4" />
+              </Link>
+            ) : null}
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -33,7 +133,12 @@ export default function ArenasPage() {
         </div>
       </div>
 
-      {arenas.length === 0 ? (
+      {isLoading ? (
+        <div role="status" aria-label="Memuat data gelanggang" className="flex min-h-40 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 dark:border-[#273649] dark:bg-[#0d1c2f] dark:text-[#cbd5e1]">
+          <LoaderCircle className="h-5 w-5 animate-spin text-amber-600 dark:text-[#ffd165]" />
+          Memuat gelanggang
+        </div>
+      ) : arenas.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-12 text-center bg-white/50 dark:bg-[#0d1c2f]/50">
           <Grid3X3 className="w-12 h-12 text-slate-400 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-900 dark:text-white">Belum Ada Gelanggang</h3>
@@ -49,143 +154,12 @@ export default function ArenasPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {arenas.map((arena, idx) => {
-            const currentMatch =
-              matches.find((match) => match.id === arena.currentMatchId) ||
-              matches.find((match) => match.arenaId === arena.id && match.status === "LIVE") ||
-              matches.find((match) => match.arenaId === arena.id && ["READY", "SCHEDULED"].includes(match.status));
-
-            return (
-              <div
-                key={`${arena.id}-${idx}`}
-                className="rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] overflow-hidden flex flex-col justify-between shadow-xs transition-colors"
-              >
-              <div className="p-5 border-b border-slate-100 dark:border-[#273649] flex items-center justify-between bg-slate-50/70 dark:bg-[#1F232C]">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 dark:bg-[#273649] dark:text-[#ffd165] dark:border-[#4f4633] flex items-center justify-center font-black tabular-nums text-lg shadow-xs">
-                    {arena.id.replace("ARENA-0", "G")}
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white leading-6">
-                      {arena.name}
-                    </h2>
-                    <span className="text-xs text-slate-400 dark:text-[#64748B] tabular-nums">
-                      ID: {arena.id}
-                    </span>
-                  </div>
-                </div>
-
-                <Badge
-                  variant={arena.status === "ACTIVE" ? "live" : "default"}
-                  size="md"
-                >
-                  {arena.status === "ACTIVE" ? "Aktif" : arena.status === "MAINTENANCE" ? "Pemeliharaan" : "Siap"}
-                </Badge>
-              </div>
-
-              <div className="p-5 space-y-4">
-                {currentMatch ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#94A3B8]">
-                      <span className="tabular-nums font-semibold">{currentMatch.matchNumber}</span>
-                      <span className="text-slate-800 dark:text-white font-medium">{currentMatch.category}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 rounded-lg border border-red-200 dark:border-[#DC2626]/20 bg-red-50/50 dark:bg-[#DC2626]/10 flex items-center justify-between min-w-0">
-                        <div className="min-w-0 pr-2">
-                          <div className="text-[10px] font-bold text-red-600 dark:text-[#FCA5A5] uppercase tracking-wide">Merah</div>
-                          <div className="text-sm font-bold text-slate-900 dark:text-white truncate leading-5">
-                            {currentMatch.redAthlete.name}
-                          </div>
-                        </div>
-                        <div className="font-mono font-bold text-2xl tabular-nums text-red-600 dark:text-white">
-                          {currentMatch.redScore}
-                        </div>
-                      </div>
-
-                      <div className="p-3 rounded-lg border border-blue-200 dark:border-[#2563EB]/20 bg-blue-50/50 dark:bg-[#2563EB]/10 flex items-center justify-between min-w-0">
-                        <div className="min-w-0 pr-2">
-                          <div className="text-[10px] font-bold text-blue-600 dark:text-[#93C5FD] uppercase tracking-wide">Biru</div>
-                          <div className="text-sm font-bold text-slate-900 dark:text-white truncate leading-5">
-                            {currentMatch.blueAthlete.name}
-                          </div>
-                        </div>
-                        <div className="font-mono font-bold text-2xl tabular-nums text-blue-600 dark:text-white">
-                          {currentMatch.blueScore}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#1F232C] border border-slate-200 dark:border-[#2A2D36] text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-800 dark:text-white font-medium">
-                        <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-[#ffd165]" />
-                        <span>Babak {currentMatch.currentRound} / {currentMatch.totalRounds}</span>
-                      </div>
-                      <span className="font-bold text-emerald-600 dark:text-[#22C55E] tabular-nums">
-                        {formatTime(currentMatch.timeRemainingSeconds)}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-6 text-center text-xs text-slate-400 dark:text-[#64748B]">
-                    Tidak ada partai yang sedang aktif di gelanggang ini.
-                  </div>
-                )}
-
-                <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
-                  <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#122033] border border-slate-200 dark:border-[#273649] text-center">
-                    <div className="text-slate-500 dark:text-[#64748B]">Wasit Juri</div>
-                    <div className="font-bold text-emerald-600 dark:text-[#22C55E] mt-0.5 tabular-nums">{arena.connectedJudgesCount} / {arena.totalJudgesCount}</div>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#122033] border border-slate-200 dark:border-[#273649] text-center">
-                    <div className="text-slate-500 dark:text-[#64748B]">Layar TV</div>
-                    <div className={`font-bold mt-0.5 ${arena.displayConnected ? "text-emerald-600 dark:text-[#22C55E]" : "text-slate-500 dark:text-[#94A3B8]"}`}>{arena.displayConnected ? "Online" : "Offline"}</div>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#122033] border border-slate-200 dark:border-[#273649] text-center">
-                    <div className="text-slate-500 dark:text-[#64748B]">OBS HUD</div>
-                    <div className={`font-bold mt-0.5 ${arena.obsConnected ? "text-emerald-600 dark:text-[#22C55E]" : "text-slate-500 dark:text-[#94A3B8]"}`}>{arena.obsConnected ? "Online" : "Offline"}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-5 pt-0 border-t border-slate-100 dark:border-[#273649] flex flex-wrap items-center justify-between gap-3 mt-2">
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/display/${arena.id}`}
-                    target="_blank"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#1F232C] dark:hover:bg-[#272C37] text-xs font-semibold text-emerald-700 dark:text-[#22C55E] border border-slate-200 dark:border-[#2A2D36] transition-colors"
-                  >
-                    <Tv className="w-3.5 h-3.5" />
-                    <span>TV Display</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400 dark:text-[#64748B] ml-0.5" />
-                  </Link>
-
-                  <Link
-                    href={`/overlay/${arena.id}`}
-                    target="_blank"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#1F232C] dark:hover:bg-[#272C37] text-xs font-semibold text-purple-700 dark:text-[#A855F7] border border-slate-200 dark:border-[#2A2D36] transition-colors"
-                  >
-                    <Cast className="w-3.5 h-3.5" />
-                    <span>OBS HUD</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400 dark:text-[#64748B] ml-0.5" />
-                  </Link>
-                </div>
-
-                {currentMatch && (
-                  <Link href={`/live-scoring/${currentMatch.id}`}>
-                    <Button variant="primary" size="sm">
-                      <Radio className="w-3.5 h-3.5 mr-1.5" />
-                      Kontrol Live
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            </div>
-          );
-        })}
-        </div>
+        <DataTable
+          data={arenas}
+          columns={columns}
+          keyExtractor={(arena) => arena.id}
+          emptyMessage="Belum ada data gelanggang."
+        />
       )}
     </div>
   );

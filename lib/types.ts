@@ -2,6 +2,14 @@ export type Corner = "RED" | "BLUE";
 
 export type MatchStatus = "UPCOMING" | "SCHEDULED" | "READY" | "LIVE" | "PAUSED" | "FINISHED" | "CANCELLED";
 
+export type MatchWinReason =
+  | "MENANG_ANGKA"
+  | "MENANG_MUTLAK"
+  | "MENANG_TEKNIK"
+  | "MENANG_DISKUALIFIKASI"
+  | "MENANG_W_O"
+  | "MENANG_UNDUR_DIRI";
+
 export type TimerStatus = "READY" | "RUNNING" | "PAUSED" | "WARNING" | "FINISHED";
 
 export type ConnectionStatus = "ONLINE" | "SYNCING" | "RECONNECTING" | "OFFLINE";
@@ -86,6 +94,7 @@ export interface Match {
   status: MatchStatus;
   winner?: Corner;
   winReason?: string; // e.g., "MENANG ANGKA", "DISKUALIFIKASI", "W.O."
+  scheduledDate?: string;
   scheduledTime: string;
   redPenalties: PenaltyRecord[];
   bluePenalties: PenaltyRecord[];

@@ -64,15 +64,11 @@ export default async function HomePage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 dark:bg-[#ffd165] opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500 dark:bg-[#ffd165]" />
             </span>
-            PAGAR • ALE-ALE EDITION
+            PAGAR ALE-ALE EDITION
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-[#d5e3fd] leading-tight mb-3">
             Digital Pencak Silat Scoring System
           </h1>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-[#d3c5ac] leading-relaxed">
-            Sistem kontrol pertandingan dan penilaian digital terpadu{tournament ? ` untuk ${tournament.name}.` : "."}
-            Pilih modul sistem di bawah untuk memulai.
-          </p>
         </div>
 
         {/* 4 Feature Cards */}

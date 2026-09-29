@@ -8,7 +8,8 @@ import { JudgeStatus } from "@/components/judge/JudgeStatus";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { Battery, ArrowRight, LayoutDashboard } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { Battery, ArrowRight, LayoutDashboard, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function JudgeHomePage() {
@@ -18,6 +19,39 @@ export default function JudgeHomePage() {
     judge.judgeNumber === currentJudgeNumber &&
     (!activeMatch.arenaId || judge.arenaId === activeMatch.arenaId)
   ) ?? judges.find((judge) => judge.judgeNumber === currentJudgeNumber);
+
+  const [accessCode, setAccessCode] = React.useState("");
+  const [verifiedAccessKey, setVerifiedAccessKey] = React.useState<string | null>(null);
+  const [isVerifyingCode, setIsVerifyingCode] = React.useState(false);
+  const [verificationError, setVerificationError] = React.useState("");
+  const verificationKey = `${activeMatch.id}:${currentJudgeNumber}`;
+  const isCodeValid = verifiedAccessKey === verificationKey;
+
+  const handleValidateCode = async () => {
+    setIsVerifyingCode(true);
+    setVerificationError("");
+    try {
+      const response = await fetch("/api/judge-sessions/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          matchId: activeMatch.id,
+          judgeNumber: currentJudgeNumber,
+          accessCode,
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Kode akses tidak valid.");
+
+      sessionStorage.setItem(`judge-access:${activeMatch.id}:${currentJudgeNumber}`, accessCode);
+      setVerifiedAccessKey(verificationKey);
+    } catch (error) {
+      setVerifiedAccessKey(null);
+      setVerificationError(error instanceof Error ? error.message : "Kode akses tidak valid.");
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-8">
@@ -144,19 +178,57 @@ export default function JudgeHomePage() {
                 {activeMatch.blueScore}
               </div>
             </div>
-          </div>
 
-          <div className="pt-1">
-            <Link href={`/judge/scoring/${activeMatch.id}`} className="block w-full">
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full text-base sm:text-lg h-14"
-              >
-                <span>Masuk Ke Penilaian Partai</span>
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
+            <div className="pt-2 border-t border-slate-100 dark:border-[#273649]">
+              <div className="mb-3 space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-[#94A3B8] flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" />
+                  Kode Akses Juri
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Masukkan kode 16 karakter"
+                    value={accessCode}
+                    onChange={(e) => {
+                      setAccessCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, ""));
+                      setVerifiedAccessKey(null);
+                      setVerificationError("");
+                    }}
+                    maxLength={16}
+                    className="font-mono text-center tracking-widest uppercase"
+                  />
+                  <Button variant="outline" onClick={() => void handleValidateCode()} disabled={accessCode.length !== 16 || isVerifyingCode}>
+                    {isVerifyingCode ? "Memeriksa..." : "Validasi"}
+                  </Button>
+                </div>
+                {verificationError ? (
+                  <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">{verificationError}</p>
+                ) : null}
+              </div>
+
+              {isCodeValid ? (
+                <Link href={`/judge/scoring/${activeMatch.id}?juri=${currentJudgeNumber}`} className="block w-full">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full text-base sm:text-lg h-14"
+                  >
+                    <span>Masuk Ke Penilaian Partai</span>
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full text-base sm:text-lg h-14 opacity-50"
+                  disabled
+                >
+                  <Lock className="w-5 h-5 mr-2" />
+                  <span>Masukkan Kode Akses</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

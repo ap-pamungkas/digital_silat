@@ -2,16 +2,19 @@ import * as React from "react";
 import Link from "next/link";
 import { Match } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { formatTime, cn } from "@/lib/utils";
-import { Clock, ArrowRight } from "lucide-react";
+import { Clock, ArrowRight, Pencil, Trash2 } from "lucide-react";
 
 interface MatchCardProps {
   match: Match;
   viewMode?: "operator" | "judge" | "compact";
   className?: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function MatchCard({ match, viewMode = "operator", className }: MatchCardProps) {
+export function MatchCard({ match, viewMode = "operator", className, onEdit, onDelete }: MatchCardProps) {
   const isLive = match.status === "LIVE";
   const isFinished = match.status === "FINISHED";
 
@@ -19,7 +22,7 @@ export function MatchCard({ match, viewMode = "operator", className }: MatchCard
     <div
       className={cn(
         "rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-4 shadow-xs transition-colors",
-        isLive && "border-l-[4px] border-l-red-600 dark:border-l-red-500",
+        isLive && "border-l-4 border-l-red-600 dark:border-l-red-500",
         className
       )}
     >
@@ -98,12 +101,38 @@ export function MatchCard({ match, viewMode = "operator", className }: MatchCard
             Nilai <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         ) : (
-          <Link
-            href={`/live-scoring/${match.id}`}
-            className="inline-flex items-center gap-1 font-semibold text-xs text-slate-800 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-[#273649] dark:hover:bg-[#1c2b3e] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#273649] transition-colors"
-          >
-            Kontrol <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onEdit}
+                aria-label={`Edit ${match.matchNumber}`}
+                title="Edit jadwal"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40"
+                onClick={onDelete}
+                aria-label={`Hapus ${match.matchNumber}`}
+                title="Hapus jadwal"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+            <Link
+              href={`/live-scoring/${match.id}`}
+              className="inline-flex items-center gap-1 font-semibold text-xs text-slate-800 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-[#273649] dark:hover:bg-[#1c2b3e] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#273649] transition-colors"
+            >
+              Kontrol <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         )}
       </div>
     </div>

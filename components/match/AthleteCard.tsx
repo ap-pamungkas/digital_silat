@@ -1,15 +1,19 @@
 import * as React from "react";
 import { Athlete, Corner } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface AthleteCardProps {
   athlete: Athlete;
   corner?: Corner;
   score?: number;
   className?: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function AthleteCard({ athlete, corner, score, className }: AthleteCardProps) {
+export function AthleteCard({ athlete, corner, score, className, onEdit, onDelete }: AthleteCardProps) {
   const isRed = corner === "RED";
   const isBlue = corner === "BLUE";
 
@@ -67,6 +71,35 @@ export function AthleteCard({ athlete, corner, score, className }: AthleteCardPr
           )}
         >
           {score}
+        </div>
+      )}
+
+      {(onEdit || onDelete) && (
+        <div className="ml-3 flex shrink-0 items-center gap-1">
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={onEdit}
+              aria-label={`Edit ${athlete.name}`}
+              title="Edit atlet"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40"
+              onClick={onDelete}
+              aria-label={`Hapus ${athlete.name}`}
+              title="Hapus atlet"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       )}
     </div>

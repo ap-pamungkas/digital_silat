@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 interface JudgeCardProps {
   judge: Judge;
   className?: string;
+  onEdit?: (judge: Judge) => void;
+  onDelete?: (judge: Judge) => void;
 }
 
-export function JudgeCard({ judge, className }: JudgeCardProps) {
+export function JudgeCard({ judge, className, onEdit, onDelete }: JudgeCardProps) {
   return (
     <div
       className={cn(
@@ -27,7 +29,33 @@ export function JudgeCard({ judge, className }: JudgeCardProps) {
             <span className="text-xs text-slate-500 dark:text-[#94A3B8]">Juri {judge.judgeNumber}</span>
           </div>
         </div>
-        <JudgeStatus status={judge.status} pingMs={judge.pingMs} showText={false} />
+        <div className="flex items-center gap-2">
+          <JudgeStatus status={judge.status} pingMs={judge.pingMs} showText={false} />
+          {(onEdit || onDelete) && (
+            <div className="flex gap-1 ml-2">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(judge)}
+                  className="p-1 text-slate-400 hover:text-blue-500 rounded bg-slate-50 hover:bg-blue-50 dark:bg-transparent dark:hover:bg-[#1a2b42] transition-colors"
+                  title="Edit Juri"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(judge)}
+                  className="p-1 text-slate-400 hover:text-red-500 rounded bg-slate-50 hover:bg-red-50 dark:bg-transparent dark:hover:bg-red-900/30 transition-colors"
+                  title="Hapus Juri"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 pt-3 mt-3 border-t border-slate-100 dark:border-[#273649] text-xs">

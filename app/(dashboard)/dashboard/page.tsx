@@ -37,15 +37,9 @@ export default function DashboardOverviewPage() {
       {/* 1. Page Header Area */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold text-amber-600 dark:text-[#ffd165] tracking-widest uppercase mb-1 flex items-center gap-2">
-            PAGAR <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-[#ffd165]" /> ALE-ALE EDITION
-          </p>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#d5e3fd] tracking-tight">
             Dashboard
           </h1>
-          <p className="text-sm text-slate-600 dark:text-[#d3c5ac] mt-1">
-            Ringkasan administrasi dan kegiatan pertandingan hari ini.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -116,7 +110,7 @@ export default function DashboardOverviewPage() {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 dark:bg-[#ffd165]" />
                 </span>
                 <span className="text-xs font-bold text-amber-700 dark:text-[#ffd165] tracking-wider">
-                  {tournament.status === "ONGOING" ? "SEDANG BERLANGSUNG" : tournament.status}
+                  {tournament.status === "ONGOING" ? "BERLANGSUNG" : tournament.status}
                 </span>
               </div>
             </div>
@@ -126,9 +120,9 @@ export default function DashboardOverviewPage() {
         <div className="relative overflow-hidden rounded-xl bg-white dark:bg-[#0d1c2f] border border-dashed border-slate-300 dark:border-[#273649] p-6 shadow-xs">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Belum Ada Turnamen Aktif</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Belum Ada Turnamen</h2>
               <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-1">
-                Silakan buat atau pilih kejuaraan di menu Turnamen untuk memulai pengelolaan gelanggang, atlet, dan jadwal partai.
+                Buat turnamen untuk mulai.
               </p>
             </div>
             <Link
@@ -147,21 +141,19 @@ export default function DashboardOverviewPage() {
         <StatCard
           title="Total Atlet"
           value={stats.totalAthletes}
-          subValue="Dari 10+ kontingen"
           icon={<User className="w-5 h-5" />}
         />
 
         <StatCard
           title="Total Pertandingan"
           value={stats.totalMatches}
-          subValue={`${stats.finishedMatches} telah selesai`}
+          subValue={`Selesai: ${stats.finishedMatches}`}
           icon={<Swords className="w-5 h-5" />}
         />
 
         <StatCard
           title="Gelanggang Aktif"
           value={stats.totalArenas}
-          subValue="Gelanggang 1, 2, 3, 4"
           icon={<Layers className="w-5 h-5" />}
           badge={
             <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-[#14532d]/40 text-emerald-700 dark:text-[#4ade80] border border-emerald-200 dark:border-[#166534] rounded text-[11px] font-bold tracking-wider">
@@ -173,7 +165,7 @@ export default function DashboardOverviewPage() {
         <StatCard
           title="Pertandingan Hari Ini"
           value={stats.matchesToday}
-          subValue={`${stats.finishedMatches} telah selesai (${Math.round((stats.finishedMatches / Math.max(1, stats.totalMatches)) * 100)}%)`}
+          subValue={`Selesai ${stats.finishedMatches}/${stats.totalMatches}`}
           icon={<Clock className="w-5 h-5" />}
           progress={{ percentage: Math.round((stats.finishedMatches / Math.max(1, stats.totalMatches)) * 100) }}
         />
@@ -186,7 +178,7 @@ export default function DashboardOverviewPage() {
           <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#273649] flex justify-between items-center bg-slate-50/80 dark:bg-[#273649]/30">
             <h2 className="text-base font-bold text-slate-900 dark:text-[#d5e3fd] flex items-center gap-2.5">
               <Calendar className="w-4 h-4 text-amber-600 dark:text-[#ffd165]" />
-              Jadwal Pertandingan Hari Ini
+              Jadwal Hari Ini
             </h2>
             <Link
               href="/matches"

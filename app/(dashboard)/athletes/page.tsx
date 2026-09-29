@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
-import { AthleteCard } from "@/components/match/AthleteCard";
-import { Users, Plus, Search } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { DataTable, Column } from "@/components/dashboard/DataTable";
+import { Users, Plus, Search, LoaderCircle, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Athlete } from "@/lib/types";
 
 export default function AthletesPage() {
   const { toast } = useToast();
@@ -18,16 +20,47 @@ export default function AthletesPage() {
     setSearch,
     genderFilter,
     setGenderFilter,
+    isLoading,
     isSubmitting,
     addAthlete,
+    updateAthlete,
+    deleteAthlete,
   } = useAthletes();
 
   const [isAddOpen, setIsAddOpen] = React.useState(false);
+  const [editingAthlete, setEditingAthlete] = React.useState<Athlete | null>(null);
+  const [deletingAthlete, setDeletingAthlete] = React.useState<Athlete | null>(null);
   const [name, setName] = React.useState("");
   const [contingent, setContingent] = React.useState("");
   const [contingentCode, setContingentCode] = React.useState("");
   const [gender, setGender] = React.useState<"PUTRA" | "PUTRI">("PUTRA");
   const [weightClass, setWeightClass] = React.useState("KELAS A (45-50 kg)");
+
+  const openAddForm = () => {
+    setEditingAthlete(null);
+    setName("");
+    setContingent("");
+    setContingentCode("");
+    setGender("PUTRA");
+    setWeightClass("KELAS A (45-50 kg)");
+    setIsAddOpen(true);
+  };
+
+  const openEditForm = (athlete: Athlete) => {
+    setEditingAthlete(athlete);
+    setName(athlete.name);
+    setContingent(athlete.contingent);
+    setContingentCode(athlete.contingentCode || "");
+    setGender(athlete.gender);
+    setWeightClass(athlete.weightClass);
+    setIsAddOpen(true);
+  };
+
+  const closeForm = () => {
+    if (isSubmitting) return;
+    setIsAddOpen(false);
+    setEditingAthlete(null);
+  };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,23 +70,29 @@ export default function AthletesPage() {
     }
 
     try {
-      await addAthlete({
+      const athleteData = {
         name: name.trim(),
         contingent: contingent.trim(),
         contingentCode: contingentCode.trim() || contingent.trim().slice(0, 3).toUpperCase(),
         gender,
         weightClass,
-      });
+      };
 
-      toast.success(
-        "Pendaftaran Berhasil",
-        `Pesilat ${name} (${gender === "PUTRA" ? "Putra" : "Putri"}) berhasil didaftarkan ke kontingen ${contingent}.`
-      );
+      if (editingAthlete) {
+        await updateAthlete(editingAthlete.id, athleteData);
+        toast.success("Atlet diperbarui", `Data ${name.trim()} berhasil disimpan.`);
+      } else {
+        await addAthlete(athleteData);
+        toast.success("Atlet ditambahkan", `${name.trim()} masuk ke kontingen ${contingent.trim()}.`);
+      }
 
       setIsAddOpen(false);
+      setEditingAthlete(null);
       setName("");
       setContingent("");
       setContingentCode("");
+      setGender("PUTRA");
+      setWeightClass("KELAS A (45-50 kg)");
     } catch (err) {
       toast.error(
         "Gagal Menyimpan Atlet",
@@ -63,10 +102,85 @@ export default function AthletesPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deletingAthlete) return;
+
+    try {
+      await deleteAthlete(deletingAthlete.id);
+      toast.success("Atlet dihapus", `${deletingAthlete.name} berhasil dihapus.`);
+      setDeletingAthlete(null);
+    } catch (err) {
+      toast.error(
+        "Gagal menghapus atlet",
+        err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus data."
+      );
+    }
+  };
+
   const filters = [
     { id: "ALL", label: "Semua" },
     { id: "PUTRA", label: "Putra" },
     { id: "PUTRI", label: "Putri" },
+  ];
+
+  const columns: Column<Athlete>[] = [
+    {
+      header: "Atlet",
+      cell: (athlete) => (
+        <div className="min-w-40">
+          <div className="font-bold text-slate-900 dark:text-white">{athlete.name}</div>
+          <div className="mt-0.5 text-xs text-slate-500 dark:text-[#94A3B8]">{athlete.id}</div>
+        </div>
+      ),
+    },
+    {
+      header: "Kontingen",
+      cell: (athlete) => (
+        <div>
+          <div className="font-medium">{athlete.contingent}</div>
+          {athlete.contingentCode ? <div className="text-xs text-slate-500 dark:text-[#94A3B8]">{athlete.contingentCode}</div> : null}
+        </div>
+      ),
+    },
+    {
+      header: "Gender",
+      cell: (athlete) => <Badge variant={athlete.gender === "PUTRA" ? "blue" : "red"}>{athlete.gender}</Badge>,
+    },
+    { header: "Kelas", accessorKey: "weightClass" },
+    {
+      header: "Seed",
+      className: "text-center",
+      cell: (athlete) => athlete.seed ?? "-",
+    },
+    {
+      header: "Aksi",
+      className: "text-right",
+      cell: (athlete) => (
+        <div className="flex justify-end gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={`Edit ${athlete.name}`}
+            title="Edit atlet"
+            onClick={() => openEditForm(athlete)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40"
+            aria-label={`Hapus ${athlete.name}`}
+            title="Hapus atlet"
+            onClick={() => setDeletingAthlete(athlete)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -75,16 +189,16 @@ export default function AthletesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-[#d5e3fd] flex items-center gap-2 leading-7">
             <Users className="w-6 h-6 text-amber-600 dark:text-[#ffd165]" />
-            Manajemen Atlet Silat
+            Atlet
           </h1>
           <p className="text-sm text-slate-600 dark:text-[#d3c5ac] mt-1">
-            Data atlet kontingen pesilat, kelas tanding, verifikasi penimbangan, dan seeding
+            Kelola data pesilat.
           </p>
         </div>
 
-        <Button variant="primary" onClick={() => setIsAddOpen(true)}>
+        <Button variant="primary" onClick={openAddForm}>
           <Plus className="w-4 h-4 mr-2" />
-          Tambah Atlet Baru
+          Tambah Atlet
         </Button>
       </div>
 
@@ -93,7 +207,7 @@ export default function AthletesPage() {
           <Search className="w-4 h-4 text-slate-400 dark:text-[#64748B] ml-2" />
           <input
             type="text"
-            placeholder="Cari atlet berdasarkan nama atau kontingen..."
+            placeholder="Cari nama atau kontingen..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-transparent text-sm text-slate-900 dark:text-white focus:outline-none placeholder:text-slate-400 dark:placeholder:text-[#64748B]"
@@ -121,33 +235,43 @@ export default function AthletesPage() {
         </div>
       </div>
 
-      {filteredAthletes.length === 0 ? (
+      {isLoading ? (
+        <div
+          role="status"
+          aria-label="Memuat data atlet"
+          className="flex min-h-48 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 dark:border-[#273649] dark:bg-[#0d1c2f] dark:text-[#cbd5e1]"
+        >
+          <LoaderCircle className="h-5 w-5 animate-spin text-amber-600 dark:text-[#ffd165]" />
+          Memuat atlet
+        </div>
+      ) : filteredAthletes.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-12 text-center bg-white/50 dark:bg-[#0d1c2f]/50">
           <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Belum Ada Data Atlet</h3>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Belum Ada Atlet</h3>
           <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-1 max-w-sm mx-auto">
-            Daftarkan pesilat kontingen untuk mulai menyusun bagan pertandingan dan jadwal partai.
+            Tambahkan data atlet untuk memulai.
           </p>
           <div className="mt-4">
-            <Button variant="primary" size="sm" onClick={() => setIsAddOpen(true)}>
+            <Button variant="primary" size="sm" onClick={openAddForm}>
               <Plus className="w-4 h-4 mr-1.5" />
-              Tambah Atlet Baru
+              Tambah Atlet
             </Button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {filteredAthletes.map((athlete, idx) => (
-            <AthleteCard key={`${athlete.id}-${idx}`} athlete={athlete} />
-          ))}
-        </div>
+        <DataTable
+          data={filteredAthletes}
+          columns={columns}
+          keyExtractor={(athlete) => athlete.id}
+          emptyMessage="Tidak ada atlet yang cocok dengan filter."
+        />
       )}
 
       <Dialog
         isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
-        title="Pendaftaran Atlet Baru"
-        description="Masukkan profil atlet, kontingen asal, dan kelas tanding."
+        onClose={closeForm}
+        title={editingAthlete ? "Edit Atlet" : "Tambah Atlet"}
+        description={editingAthlete ? "Perbarui profil atlet." : "Masukkan profil atlet."}
       >
         <form onSubmit={handleAddSubmit} className="space-y-4">
           <Input
@@ -199,14 +323,45 @@ export default function AthletesPage() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" type="button" onClick={() => setIsAddOpen(false)} className="flex-1">
+            <Button variant="outline" type="button" onClick={closeForm} disabled={isSubmitting} className="flex-1">
               Batal
             </Button>
-            <Button variant="primary" type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? "Menyimpan..." : "Simpan Atlet"}
+            <Button variant="primary" type="submit" isLoading={isSubmitting} className="flex-1">
+              {editingAthlete ? "Simpan" : "Tambah"}
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      <Dialog
+        isOpen={deletingAthlete !== null}
+        onClose={() => {
+          if (!isSubmitting) setDeletingAthlete(null);
+        }}
+        title="Hapus atlet?"
+      >
+        <p className="text-sm text-slate-600 dark:text-[#cbd5e1]">
+          <span className="font-bold text-slate-900 dark:text-white">{deletingAthlete?.name}</span>
+          <br />Atlet yang sudah masuk pertandingan tidak dapat dihapus.
+        </p>
+        <div className="mt-6 flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setDeletingAthlete(null)}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            Batal
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => void confirmDelete()}
+            isLoading={isSubmitting}
+            className="flex-1"
+          >
+            Hapus
+          </Button>
+        </div>
       </Dialog>
     </div>
   );

@@ -10,15 +10,19 @@ import React, {
 } from "react";
 import {
   Match,
-  ScoreEvent,
   Corner,
   ScoringAction,
   PenaltyType,
   PenaltyRecord,
+  MatchWinReason,
   DEFAULT_MATCH,
 } from "@/lib/types";
-import { formatTime } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
+import {
+  MatchScoringSnapshot,
+  MatchTimerAction,
+  MatchTimerSnapshot,
+} from "@/lib/api/matches";
 
 export interface LastFeedbackState {
   corner: Corner;
@@ -39,20 +43,20 @@ export interface ScoringContextType {
     action: ScoringAction,
     points: number,
     overrideJudgeNumber?: number
-  ) => void;
+  ) => Promise<void>;
   applyPenalty: (
     corner: Corner,
     type: PenaltyType,
     points: number,
     note?: string
   ) => void;
-  toggleTimer: () => void;
-  resetTimer: () => void;
-  setRound: (round: number) => void;
-  nextRound: () => void;
-  endMatch: (winnerCorner?: Corner, reason?: string) => void;
-  verifyEvent: (eventId: string) => void;
-  rejectEvent: (eventId: string) => void;
+  toggleTimer: () => Promise<void>;
+  resetTimer: () => Promise<void>;
+  setRound: (round: number) => Promise<void>;
+  nextRound: () => Promise<void>;
+  endMatch: (winnerCorner: Corner, reason?: MatchWinReason) => Promise<void>;
+  verifyEvent: (eventId: string) => Promise<void>;
+  rejectEvent: (eventId: string) => Promise<void>;
   setActiveMatchId: (matchId: string) => void;
   lastFeedback: LastFeedbackState | null;
   refreshMatches: () => Promise<void>;
@@ -127,10 +131,10 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
   const refreshMatches = useCallback(async () => {
     try {
       const data = await apiClient.matches.list();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         setMatches(data);
         const liveMatch = data.find((m: Match) => m.status === "LIVE");
-        setActiveMatchId(liveMatch ? liveMatch.id : data[0].id);
+        setActiveMatchId(liveMatch?.id ?? data[0]?.id ?? "");
       }
     } catch (err) {
       console.warn("Error fetching matches:", err);
@@ -143,10 +147,10 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
     const load = async () => {
       try {
         const data = await apiClient.matches.list();
-        if (isMounted && Array.isArray(data) && data.length > 0) {
+        if (isMounted && Array.isArray(data)) {
           setMatches(data);
           const liveMatch = data.find((m: Match) => m.status === "LIVE");
-          setActiveMatchId(liveMatch ? liveMatch.id : data[0].id);
+          setActiveMatchId(liveMatch?.id ?? data[0]?.id ?? "");
         }
       } catch (err) {
         console.warn("Initial load error:", err);
@@ -161,137 +165,117 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
   const activeMatch =
     matches.find((m) => m.id === activeMatchId) || matches[0] || DEFAULT_MATCH;
 
-  // Timer Tick Simulation
+  const applyTimerSnapshot = useCallback((snapshot: MatchTimerSnapshot) => {
+    setMatches((prev) => prev.map((match) => match.id === snapshot.matchId
+      ? {
+          ...match,
+          currentRound: snapshot.currentRound,
+          timeRemainingSeconds: snapshot.timeRemainingSeconds,
+          timerStatus: snapshot.timerStatus,
+          status: snapshot.status,
+        }
+      : match));
+  }, []);
+
+  const applyScoringSnapshot = useCallback((snapshot: MatchScoringSnapshot) => {
+    setMatches((prev) => prev.map((match) => match.id === snapshot.matchId
+      ? {
+          ...match,
+          redScore: snapshot.redScore,
+          blueScore: snapshot.blueScore,
+          events: snapshot.events,
+          redPenalties: snapshot.redPenalties,
+          bluePenalties: snapshot.bluePenalties,
+        }
+      : match));
+  }, []);
+
+  const sendTimerAction = useCallback(async (action: MatchTimerAction, round?: number) => {
+    if (activeMatch.id === "NO_MATCH") return;
+    const snapshot = await apiClient.matches.updateTimer(activeMatch.id, action, round);
+    applyTimerSnapshot(snapshot);
+  }, [activeMatch.id, applyTimerSnapshot]);
+
   useEffect(() => {
-    if (activeMatch.timerStatus !== "RUNNING") return;
+    if (activeMatch.id === "NO_MATCH") return;
 
-    const interval = setInterval(() => {
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id !== activeMatchId || m.timerStatus !== "RUNNING") return m;
-          if (m.timeRemainingSeconds <= 1) {
-            const updated = {
-              ...m,
-              timeRemainingSeconds: 0,
-              timerStatus: "FINISHED" as const,
-            };
-            broadcastMatchUpdate(updated);
-            return updated;
-          }
-          return {
-            ...m,
-            timeRemainingSeconds: m.timeRemainingSeconds - 1,
-          };
-        })
-      );
-    }, 1000);
+    let isCancelled = false;
+    let isFetching = false;
+    const syncScoring = async () => {
+      if (isFetching) return;
+      isFetching = true;
+      try {
+        const snapshot = await apiClient.matches.getScoringSnapshot(activeMatch.id);
+        if (!isCancelled) applyScoringSnapshot(snapshot);
+      } catch (error) {
+        if (!isCancelled) console.warn("Failed to synchronize score events:", error);
+      } finally {
+        isFetching = false;
+      }
+    };
 
-    return () => clearInterval(interval);
-  }, [activeMatch.timerStatus, activeMatchId, broadcastMatchUpdate]);
+    void Promise.resolve().then(syncScoring);
+    const interval = setInterval(() => void syncScoring(), 1000);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeMatch.id, applyScoringSnapshot]);
 
-  /**
-   * Scoring Action from Judge -> Sends PENDING event to Operator
-   */
+  // Poll only the timer fields so separate judge/operator devices share server time.
+  useEffect(() => {
+    if (activeMatch.id === "NO_MATCH") return;
+
+    let isCancelled = false;
+    let isFetching = false;
+    const syncTimer = async () => {
+      if (isFetching) return;
+      isFetching = true;
+      try {
+        const snapshot = await apiClient.matches.getTimer(activeMatch.id);
+        if (!isCancelled) applyTimerSnapshot(snapshot);
+      } catch (error) {
+        if (!isCancelled) console.warn("Failed to synchronize match timer:", error);
+      } finally {
+        isFetching = false;
+      }
+    };
+
+    void Promise.resolve().then(syncTimer);
+    const interval = setInterval(() => void syncTimer(), 1000);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeMatch.id, applyTimerSnapshot]);
+
   const submitScore = useCallback(
-    (
+    async (
       corner: Corner,
       action: ScoringAction,
       points: number,
       overrideJudgeNumber?: number
     ) => {
       const judgeNum = overrideJudgeNumber || currentJudgeNumber;
-      const now = Date.now();
-      const matchTimeStr = formatTime(activeMatch.timeRemainingSeconds);
-
-      let feedbackState: LastFeedbackState | null = null;
-      let targetUpdatedMatch: Match | null = null;
-
-      setMatches((prevMatches) => {
-        const next = prevMatches.map((match) => {
-          if (match.id !== activeMatch.id) return match;
-
-          const existingPendingIndex = match.events.findIndex(
-            (e) =>
-              e.status === "PENDING" &&
-              e.round === match.currentRound &&
-              e.corner === corner &&
-              e.action === action &&
-              now - e.timestamp <= 4000
-          );
-
-          let updatedEvents = [...match.events];
-
-          if (existingPendingIndex >= 0) {
-            const existingEvt = match.events[existingPendingIndex];
-            const currentJudges = existingEvt.judgesAgreed || [existingEvt.judgeNumber];
-
-            const newJudges = currentJudges.includes(judgeNum)
-              ? currentJudges
-              : [...currentJudges, judgeNum];
-
-            const updatedEvt: ScoreEvent = {
-              ...existingEvt,
-              judgesAgreed: newJudges,
-            };
-
-            updatedEvents[existingPendingIndex] = updatedEvt;
-
-            feedbackState = {
-              corner,
-              action,
-              points,
-              timestamp: now,
-              status: "PENDING",
-              agreedJudges: newJudges,
-            };
-          } else {
-            const newEvent: ScoreEvent = {
-              id: `EVT-${now}-${Math.random().toString(36).substring(2, 6)}`,
-              matchId: match.id,
-              judgeId: `JURI-${judgeNum}`,
-              judgeNumber: judgeNum,
-              corner,
-              action,
-              points,
-              round: match.currentRound,
-              matchTime: matchTimeStr,
-              timestamp: now,
-              verified: false,
-              status: "PENDING",
-              judgesAgreed: [judgeNum],
-            };
-
-            updatedEvents = [newEvent, ...updatedEvents];
-
-            feedbackState = {
-              corner,
-              action,
-              points,
-              timestamp: now,
-              status: "PENDING",
-              agreedJudges: [judgeNum],
-            };
-          }
-
-          const updatedMatch: Match = {
-            ...match,
-            events: updatedEvents,
-          };
-          targetUpdatedMatch = updatedMatch;
-          return updatedMatch;
-        });
-
-        return next;
+      if (activeMatch.id === "NO_MATCH") throw new Error("Belum ada pertandingan aktif.");
+      const result = await apiClient.matches.submitScoreEvent(activeMatch.id, {
+        corner,
+        action,
+        points,
+        judgeNumber: judgeNum,
       });
-
-      if (feedbackState) {
-        setLastFeedback(feedbackState);
-      }
-      if (targetUpdatedMatch && feedbackState) {
-        broadcastMatchUpdate(targetUpdatedMatch, feedbackState);
-      }
+      applyScoringSnapshot(result.snapshot);
+      setLastFeedback({
+        corner,
+        action,
+        points,
+        timestamp: Date.now(),
+        status: "PENDING",
+        agreedJudges: result.agreedJudges,
+      });
     },
-    [activeMatch, currentJudgeNumber, broadcastMatchUpdate]
+    [activeMatch, currentJudgeNumber, applyScoringSnapshot]
   );
 
   const applyPenalty = useCallback(
@@ -338,218 +322,95 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
     [activeMatch, broadcastMatchUpdate]
   );
 
-  const toggleTimer = useCallback(() => {
-    let targetUpdated: Match | null = null;
-    setMatches((prev) =>
-      prev.map((m) => {
-        if (m.id !== activeMatch.id) return m;
-        const newStatus =
-          m.timerStatus === "RUNNING" ? ("PAUSED" as const) : ("RUNNING" as const);
-        const updated: Match = {
-          ...m,
-          timerStatus: newStatus,
-          status: newStatus === "RUNNING" ? ("LIVE" as const) : ("PAUSED" as const),
-        };
-        targetUpdated = updated;
-        return updated;
-      })
-    );
-    if (targetUpdated) broadcastMatchUpdate(targetUpdated);
-  }, [activeMatch.id, broadcastMatchUpdate]);
+  const toggleTimer = useCallback(async () => {
+    await sendTimerAction(activeMatch.timerStatus === "RUNNING" ? "PAUSE" : "START");
+  }, [activeMatch.timerStatus, sendTimerAction]);
 
-  const resetTimer = useCallback(() => {
-    let targetUpdated: Match | null = null;
-    setMatches((prev) =>
-      prev.map((m) => {
-        if (m.id !== activeMatch.id) return m;
-        const updated: Match = {
-          ...m,
-          timeRemainingSeconds: m.roundDurationSeconds,
-          timerStatus: "READY" as const,
-          status: "PAUSED" as const,
-        };
-        targetUpdated = updated;
-        return updated;
-      })
-    );
-    if (targetUpdated) broadcastMatchUpdate(targetUpdated);
-  }, [activeMatch.id, broadcastMatchUpdate]);
+  const resetTimer = useCallback(async () => {
+    await sendTimerAction("RESET");
+  }, [sendTimerAction]);
 
   const setRound = useCallback(
-    (round: number) => {
-      let targetUpdated: Match | null = null;
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id !== activeMatch.id) return m;
-          const updated: Match = {
-            ...m,
-            currentRound: round,
-            timeRemainingSeconds: m.roundDurationSeconds,
-            timerStatus: "READY" as const,
-          };
-          targetUpdated = updated;
-          return updated;
-        })
-      );
-      if (targetUpdated) broadcastMatchUpdate(targetUpdated);
+    async (round: number) => {
+      await sendTimerAction("SET_ROUND", round);
     },
-    [activeMatch.id, broadcastMatchUpdate]
+    [sendTimerAction]
   );
 
-  const nextRound = useCallback(() => {
-    let targetUpdated: Match | null = null;
-    setMatches((prev) =>
-      prev.map((m) => {
-        if (m.id !== activeMatch.id) return m;
-        const nextR = Math.min(m.totalRounds, m.currentRound + 1);
-        const updated: Match = {
-          ...m,
-          currentRound: nextR,
-          timeRemainingSeconds: m.roundDurationSeconds,
-          timerStatus: "READY" as const,
-        };
-        targetUpdated = updated;
-        return updated;
-      })
-    );
-    if (targetUpdated) broadcastMatchUpdate(targetUpdated);
-  }, [activeMatch.id, broadcastMatchUpdate]);
+  const nextRound = useCallback(async () => {
+    await sendTimerAction("NEXT_ROUND");
+  }, [sendTimerAction]);
 
   const endMatch = useCallback(
-    (winnerCorner?: Corner, reason = "KEPUTUSAN JURI / WASIT") => {
-      let targetUpdated: Match | null = null;
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id !== activeMatch.id) return m;
-          const calculatedWinner =
-            winnerCorner ||
-            (m.redScore > m.blueScore
-              ? "RED"
-              : m.blueScore > m.redScore
-              ? "BLUE"
-              : undefined);
-          const updated: Match = {
-            ...m,
-            status: "FINISHED" as const,
-            timerStatus: "FINISHED" as const,
-            timeRemainingSeconds: 0,
-            winner: calculatedWinner,
-            winReason: reason,
-          };
-          targetUpdated = updated;
-          return updated;
-        })
-      );
-      if (targetUpdated) broadcastMatchUpdate(targetUpdated);
+    async (winnerCorner: Corner, reason: MatchWinReason = "MENANG_ANGKA") => {
+      if (activeMatch.id === "NO_MATCH") throw new Error("Belum ada partai aktif.");
+
+      await apiClient.matches.updateStatus({
+        matchId: activeMatch.id,
+        status: "FINISHED",
+        winnerCorner,
+        winReason: reason,
+      });
+
+      const updatedMatch: Match = {
+        ...activeMatch,
+        status: "FINISHED",
+        timerStatus: "FINISHED",
+        timeRemainingSeconds: 0,
+        winner: winnerCorner,
+        winReason: reason.replace(/_/g, " "),
+      };
+
+      setMatches((previousMatches) => previousMatches.map((match) =>
+        match.id === updatedMatch.id ? updatedMatch : match
+      ));
+      broadcastMatchUpdate(updatedMatch);
     },
-    [activeMatch.id, broadcastMatchUpdate]
+    [activeMatch, broadcastMatchUpdate]
   );
 
   /**
    * Petugas Gelanggang SAHKAN Putusan Skor (Approve & Add Points)
    */
   const verifyEvent = useCallback(
-    (eventId: string) => {
-      let feedback: LastFeedbackState | null = null;
-      let targetUpdated: Match | null = null;
-
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id !== activeMatch.id) return m;
-          const targetEvt = m.events.find((e) => e.id === eventId);
-          if (!targetEvt || targetEvt.status === "VERIFIED") return m;
-
-          const points = targetEvt.points;
-          const corner = targetEvt.corner;
-
-          const updatedEvents = m.events.map((e) =>
-            e.id === eventId
-              ? { ...e, status: "VERIFIED" as const, verified: true }
-              : e
-          );
-
-          const updated: Match = {
-            ...m,
-            redScore: corner === "RED" ? m.redScore + points : m.redScore,
-            blueScore: corner === "BLUE" ? m.blueScore + points : m.blueScore,
-            events: updatedEvents,
-          };
-
-          feedback = {
-            corner: targetEvt.corner,
-            action: targetEvt.action,
-            points: targetEvt.points,
-            timestamp: Date.now(),
-            status: "VERIFIED",
-            agreedJudges: targetEvt.judgesAgreed || [targetEvt.judgeNumber],
-          };
-
-          targetUpdated = updated;
-          return updated;
-        })
-      );
-
-      if (feedback) setLastFeedback(feedback);
-      if (targetUpdated && feedback) broadcastMatchUpdate(targetUpdated, feedback);
+    async (eventId: string) => {
+      const targetEvent = activeMatch.events.find((event) => event.id === eventId);
+      const snapshot = await apiClient.matches.decideScoreEvent(activeMatch.id, eventId, "VERIFY");
+      applyScoringSnapshot(snapshot);
+      if (targetEvent) {
+        setLastFeedback({
+          corner: targetEvent.corner,
+          action: targetEvent.action,
+          points: targetEvent.points,
+          timestamp: Date.now(),
+          status: "VERIFIED",
+          agreedJudges: targetEvent.judgesAgreed || [targetEvent.judgeNumber],
+        });
+      }
     },
-    [activeMatch.id, broadcastMatchUpdate]
+    [activeMatch, applyScoringSnapshot]
   );
 
   /**
    * Petugas Gelanggang TOLAK Putusan Skor (Reject / Invalidate)
    */
   const rejectEvent = useCallback(
-    (eventId: string) => {
-      let feedback: LastFeedbackState | null = null;
-      let targetUpdated: Match | null = null;
-
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id !== activeMatch.id) return m;
-          const eventToReject = m.events.find((e) => e.id === eventId);
-          if (!eventToReject || eventToReject.status === "REJECTED") return m;
-
-          const points = eventToReject.points;
-          const corner = eventToReject.corner;
-          const wasVerified = eventToReject.status === "VERIFIED";
-
-          const updatedEvents = m.events.map((e) =>
-            e.id === eventId
-              ? { ...e, status: "REJECTED" as const, verified: false }
-              : e
-          );
-
-          const updated: Match = {
-            ...m,
-            redScore:
-              corner === "RED" && wasVerified
-                ? Math.max(0, m.redScore - points)
-                : m.redScore,
-            blueScore:
-              corner === "BLUE" && wasVerified
-                ? Math.max(0, m.blueScore - points)
-                : m.blueScore,
-            events: updatedEvents,
-          };
-
-          feedback = {
-            corner: eventToReject.corner,
-            action: eventToReject.action,
-            points: eventToReject.points,
-            timestamp: Date.now(),
-            status: "REJECTED",
-            agreedJudges: eventToReject.judgesAgreed || [eventToReject.judgeNumber],
-          };
-
-          targetUpdated = updated;
-          return updated;
-        })
-      );
-
-      if (feedback) setLastFeedback(feedback);
-      if (targetUpdated && feedback) broadcastMatchUpdate(targetUpdated, feedback);
+    async (eventId: string) => {
+      const targetEvent = activeMatch.events.find((event) => event.id === eventId);
+      const snapshot = await apiClient.matches.decideScoreEvent(activeMatch.id, eventId, "REJECT");
+      applyScoringSnapshot(snapshot);
+      if (targetEvent) {
+        setLastFeedback({
+          corner: targetEvent.corner,
+          action: targetEvent.action,
+          points: targetEvent.points,
+          timestamp: Date.now(),
+          status: "REJECTED",
+          agreedJudges: targetEvent.judgesAgreed || [targetEvent.judgeNumber],
+        });
+      }
     },
-    [activeMatch.id, broadcastMatchUpdate]
+    [activeMatch, applyScoringSnapshot]
   );
 
   return (

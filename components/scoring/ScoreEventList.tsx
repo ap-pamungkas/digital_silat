@@ -38,6 +38,8 @@ export function ScoreEventList({
         const isRed = evt.corner === "RED";
         const isVerified = evt.status === "VERIFIED";
         const isRejected = evt.status === "REJECTED";
+        const agreedJudgeCount = evt.judgesAgreed?.length ?? 1;
+        const hasJudgeQuorum = agreedJudgeCount >= 2;
 
         return (
           <div
@@ -102,8 +104,9 @@ export function ScoreEventList({
                   <>
                     <button
                       onClick={() => onVerify?.(evt.id)}
-                      className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
-                      title="Sahkan & Tambahkan Poin ke Skor Atlet"
+                      disabled={!hasJudgeQuorum}
+                      className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      title={hasJudgeQuorum ? "Sahkan & Tambahkan Poin ke Skor Atlet" : "Menunggu masukan dari juri kedua"}
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       <span>Sahkan</span>
@@ -152,7 +155,7 @@ export function ScoreEventList({
             ) : (
               <span className="text-xs text-amber-400 font-medium animate-pulse flex items-center gap-1 shrink-0 ml-2">
                 <Clock className="w-3 h-3" />
-                Menunggu Putusan Petugas (0/2)
+                Menunggu Putusan Petugas ({agreedJudgeCount}/2 Juri)
               </span>
             )}
           </div>

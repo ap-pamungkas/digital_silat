@@ -1,0 +1,131 @@
+import { prisma } from "@/lib/prisma";
+import { Tournament } from "@/lib/types";
+import { getArenas } from "./arenas";
+import { getMatches } from "./matches";
+import { formatDateIndo } from "./shared";
+
+export async function getDashboardData() {
+  try {
+    const tournament =
+      (await prisma.tournament.findFirst({
+        where: { status: "ONGOING" },
+        include: {
+          _count: {
+            select: {
+              arenas: true,
+              matches: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      })) ||
+      (await prisma.tournament.findFirst({
+        include: {
+          _count: {
+            select: {
+              arenas: true,
+              matches: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }));
+
+    const totalAthletes = await prisma.athlete.count();
+    const totalMatches = await prisma.match.count();
+    const totalArenas = await prisma.arena.count();
+    const finishedMatches = await prisma.match.count({
+      where: { status: "FINISHED" },
+    });
+
+    const matchesList = await getMatches();
+    const arenas = await getArenas();
+    const auditLogs = await prisma.auditLog.findMany({
+      take: 5,
+      orderBy: { createdAt: "desc" },
+    });
+
+    const activeMatch =
+      matchesList.find((match) => match.status === "LIVE") ||
+      matchesList[0] ||
+      null;
+
+    return {
+      tournament: tournament
+        ? {
+            id: tournament.code,
+            name: tournament.name,
+            location: tournament.location,
+            startDate: formatDateIndo(tournament.startDate),
+            endDate: formatDateIndo(tournament.endDate),
+            status: tournament.status as "ONGOING" | "UPCOMING" | "COMPLETED",
+            totalArenas: tournament._count?.arenas || totalArenas,
+            totalMatches: tournament._count?.matches || totalMatches,
+            totalAthletes,
+          }
+        : null,
+      stats: {
+        totalAthletes,
+        totalMatches,
+        finishedMatches,
+        totalArenas,
+        matchesToday: matchesList.length,
+      },
+      matches: matchesList,
+      activeMatch,
+      arenas,
+      auditLogs,
+    };
+  } catch (error) {
+    console.error("Error in getDashboardData:", error);
+    return {
+      tournament: null,
+      stats: {
+        totalAthletes: 0,
+        totalMatches: 0,
+        finishedMatches: 0,
+        totalArenas: 0,
+        matchesToday: 0,
+      },
+      matches: [],
+      activeMatch: null,
+      arenas: [],
+      auditLogs: [],
+    };
+  }
+}
+
+export async function getTournaments(): Promise<Tournament[]> {
+  try {
+    const list = await prisma.tournament.findMany({
+      include: {
+        _count: {
+          select: {
+            arenas: true,
+            matches: true,
+          },
+        },
+      },
+      orderBy: { startDate: "asc" },
+    });
+
+    if (!list.length) return [];
+
+    const athleteCount = await prisma.athlete.count();
+
+    return list.map((tournament) => ({
+      id: tournament.code,
+      name: tournament.name,
+      location: tournament.location,
+      startDate: formatDateIndo(tournament.startDate),
+      endDate: formatDateIndo(tournament.endDate),
+      status: tournament.status as "ONGOING" | "UPCOMING" | "COMPLETED",
+      totalArenas: tournament._count.arenas,
+      totalMatches: tournament._count.matches,
+      totalAthletes: athleteCount,
+    }));
+  } catch (error) {
+    console.error("Error in getTournaments:", error);
+    return [];
+  }
+}

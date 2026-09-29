@@ -56,6 +56,39 @@ export function useTournaments() {
     [fetchTournaments]
   );
 
+  const updateTournament = useCallback(
+    async (id: string, data: Partial<CreateTournamentDto>) => {
+      setIsSubmitting(true);
+      try {
+        const updated = await apiClient.tournaments.update(id, data);
+        await fetchTournaments();
+        return updated;
+      } catch (err) {
+        console.error("Error updating tournament:", err);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [fetchTournaments]
+  );
+
+  const deleteTournament = useCallback(
+    async (id: string) => {
+      setIsSubmitting(true);
+      try {
+        await apiClient.tournaments.delete(id);
+        await fetchTournaments();
+      } catch (err) {
+        console.error("Error deleting tournament:", err);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [fetchTournaments]
+  );
+
   return {
     tournaments,
     filteredTournaments,
@@ -65,6 +98,8 @@ export function useTournaments() {
     isSubmitting,
     error,
     createTournament,
+    updateTournament,
+    deleteTournament,
     refreshTournaments: fetchTournaments,
   };
 }

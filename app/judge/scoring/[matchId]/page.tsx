@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useScoring, useToast, useJudges } from "@/hooks";
 import { ScoreButton } from "@/components/scoring/ScoreButton";
 import { MatchTimer } from "@/components/scoring/MatchTimer";
@@ -26,9 +26,11 @@ import { cn } from "@/lib/utils";
 
 function JudgeScoringContent() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const matchId = typeof params?.matchId === "string" ? params.matchId : "";
   const urlJuri = searchParams.get("juri");
+  const requestedJudgeNumber = urlJuri && /^[1-5]$/.test(urlJuri) ? Number(urlJuri) : null;
 
   const { toast } = useToast();
 
@@ -42,20 +44,56 @@ function JudgeScoringContent() {
     applyPenalty,
     lastFeedback,
   } = useScoring();
-  const { judges } = useJudges();
+  const { judges, refreshJudges } = useJudges();
 
   const [isPenaltyOpen, setIsPenaltyOpen] = React.useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = React.useState(false);
+  const [expiredFeedbackTimestamp, setExpiredFeedbackTimestamp] = React.useState<number | null>(null);
+  const [verifiedSessionKey, setVerifiedSessionKey] = React.useState<string | null>(null);
+  const [isVerifyingAccess, setIsVerifyingAccess] = React.useState(true);
+  const requestedSessionKey = `${matchId}:${requestedJudgeNumber}`;
+  const isAccessVerified = verifiedSessionKey === requestedSessionKey;
+
+  React.useEffect(() => {
+    if (!matchId || !requestedJudgeNumber) {
+      router.replace("/judge");
+      return;
+    }
+
+    const verifySession = async () => {
+      setIsVerifyingAccess(true);
+      const storageKey = `judge-access:${matchId}:${requestedJudgeNumber}`;
+      const accessCode = sessionStorage.getItem(storageKey);
+      if (!accessCode) {
+        router.replace("/judge");
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/judge-sessions/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matchId, judgeNumber: requestedJudgeNumber, accessCode }),
+        });
+        if (!response.ok) throw new Error("Sesi juri tidak valid.");
+        setVerifiedSessionKey(requestedSessionKey);
+      } catch {
+        sessionStorage.removeItem(storageKey);
+        router.replace("/judge");
+      } finally {
+        setIsVerifyingAccess(false);
+      }
+    };
+
+    void verifySession();
+  }, [matchId, requestedJudgeNumber, requestedSessionKey, router]);
 
   // Sync judge number from URL query if provided (e.g. ?juri=2)
   React.useEffect(() => {
-    if (urlJuri) {
-      const parsed = parseInt(urlJuri, 10);
-      if (parsed >= 1 && parsed <= 5 && parsed !== currentJudgeNumber) {
-        setCurrentJudgeNumber(parsed);
-      }
+    if (requestedJudgeNumber && requestedJudgeNumber !== currentJudgeNumber) {
+      setCurrentJudgeNumber(requestedJudgeNumber);
     }
-  }, [urlJuri, currentJudgeNumber, setCurrentJudgeNumber]);
+  }, [requestedJudgeNumber, currentJudgeNumber, setCurrentJudgeNumber]);
 
   React.useEffect(() => {
     if (matchId && matchId !== activeMatch.id) {
@@ -67,20 +105,37 @@ function JudgeScoringContent() {
   const assignedJudge = judges.find((judge) =>
     judge.judgeNumber === currentJudgeNumber && judge.arenaId === match?.arenaId
   );
+  const matchArenaId = match?.arenaId;
+  const isJudgeRegistered = Boolean(assignedJudge);
 
-  const handleJudgeScore = (
+  React.useEffect(() => {
+    if (!matchArenaId || isJudgeRegistered) return;
+    const interval = setInterval(() => void refreshJudges(), 5000);
+    return () => clearInterval(interval);
+  }, [matchArenaId, isJudgeRegistered, refreshJudges]);
+
+  const handleJudgeScore = async (
     corner: Corner,
     action: ScoringAction,
     points: number
   ) => {
-    submitScore(corner, action, points, currentJudgeNumber);
-    toast.info(
-      `+${points} ${action.replace(/_/g, " ")}`,
-      `Juri ${currentJudgeNumber} input ${
-        corner === "RED" ? "Sudut Merah" : "Sudut Biru"
-      }. (Mencari kuorum 2 juri...)`,
-      1500
-    );
+    if (!assignedJudge) {
+      toast.error("Juri Belum Terdaftar", "Minta operator mendaftarkan juri ini di Monitoring Juri sebelum mengirim skor.");
+      return;
+    }
+    try {
+      await submitScore(corner, action, points, currentJudgeNumber);
+      toast.info(
+        `+${points} ${action.replace(/_/g, " ")}`,
+        `Masukan Juri ${currentJudgeNumber} tersinkron. Menunggu kuorum juri lain.`,
+        1500
+      );
+    } catch (error) {
+      toast.error(
+        "Masukan Skor Gagal",
+        error instanceof Error ? error.message : "Skor tidak dapat disimpan ke server."
+      );
+    }
   };
 
   const handleJudgePenalty = (
@@ -98,14 +153,33 @@ function JudgeScoringContent() {
     );
   };
 
-  // Check last feedback consensus message
-  const hasRecentFeedback =
-    lastFeedback && Date.now() - lastFeedback.timestamp < 3500;
+  React.useEffect(() => {
+    if (!lastFeedback) return;
+    const timeout = setTimeout(() => setExpiredFeedbackTimestamp(lastFeedback.timestamp), 3500);
+    return () => clearTimeout(timeout);
+  }, [lastFeedback]);
+
+  const hasRecentFeedback = lastFeedback && expiredFeedbackTimestamp !== lastFeedback.timestamp;
 
   if (!match) {
+    if (isVerifyingAccess || isAccessVerified) {
+      return (
+        <div className="rounded-xl border border-slate-200 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
+          Memverifikasi akses juri...
+        </div>
+      );
+    }
     return (
       <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
         Pertandingan tidak ditemukan di database.
+      </div>
+    );
+  }
+
+  if (isVerifyingAccess || !isAccessVerified) {
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
+        Memverifikasi akses juri...
       </div>
     );
   }
@@ -143,7 +217,7 @@ function JudgeScoringContent() {
               <button
                 key={num}
                 type="button"
-                onClick={() => setCurrentJudgeNumber(num)}
+                onClick={() => router.replace(`/judge/scoring/${matchId}?juri=${num}`)}
                 className={cn(
                   "px-2 py-1 text-xs font-bold rounded-md transition-all",
                   currentJudgeNumber === num
@@ -214,6 +288,12 @@ function JudgeScoringContent() {
         />
       </div>
 
+      {!assignedJudge ? (
+        <div role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-[#ffd165]">
+          Juri {currentJudgeNumber} belum terdaftar pada gelanggang ini. Input skor akan aktif setelah data juri dibuat di Monitoring Juri.
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         {/* Panel Sudut Merah */}
         <section
@@ -247,6 +327,7 @@ function JudgeScoringContent() {
               label="Pukulan"
               subLabel="Serangan Tangan Sah"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="RED"
@@ -255,6 +336,7 @@ function JudgeScoringContent() {
               label="Tendangan"
               subLabel="Serangan Kaki Sah"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="RED"
@@ -263,6 +345,7 @@ function JudgeScoringContent() {
               label="Counter Pukulan"
               subLabel="Tangkisan + Pukulan Masuk"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="RED"
@@ -271,6 +354,7 @@ function JudgeScoringContent() {
               label="Counter Tendangan"
               subLabel="Tangkisan + Tendangan Masuk"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="RED"
@@ -279,6 +363,7 @@ function JudgeScoringContent() {
               label="Jatuhan"
               subLabel="Bantingan / Kuncian Sah"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
           </div>
         </section>
@@ -315,6 +400,7 @@ function JudgeScoringContent() {
               label="Pukulan"
               subLabel="Serangan Tangan Sah"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="BLUE"
@@ -323,6 +409,7 @@ function JudgeScoringContent() {
               label="Tendangan"
               subLabel="Serangan Kaki Sah"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="BLUE"
@@ -331,6 +418,7 @@ function JudgeScoringContent() {
               label="Counter Pukulan"
               subLabel="Tangkisan + Pukulan Masuk"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="BLUE"
@@ -339,6 +427,7 @@ function JudgeScoringContent() {
               label="Counter Tendangan"
               subLabel="Tangkisan + Tendangan Masuk"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
             <ScoreButton
               corner="BLUE"
@@ -347,6 +436,7 @@ function JudgeScoringContent() {
               label="Jatuhan"
               subLabel="Bantingan / Kuncian Sah"
               onClick={handleJudgeScore}
+              disabled={!assignedJudge}
             />
           </div>
         </section>

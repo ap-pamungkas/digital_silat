@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { apiClient } from "@/lib/api";
+import { apiClient, CreateJudgeDto, UpdateJudgeDto } from "@/lib/api";
 import { Judge } from "@/lib/types";
 
 export function useJudges(initialArenaId = "") {
@@ -42,6 +42,23 @@ export function useJudges(initialArenaId = "") {
     return judges.filter((j) => j.status === "ONLINE").length;
   }, [judges]);
 
+  const addJudge = useCallback(async (data: CreateJudgeDto) => {
+    const judge = await apiClient.judges.create(data);
+    await fetchJudges();
+    return judge;
+  }, [fetchJudges]);
+
+  const updateJudge = useCallback(async (id: string, data: UpdateJudgeDto) => {
+    const updated = await apiClient.judges.update(id, data);
+    await fetchJudges();
+    return updated;
+  }, [fetchJudges]);
+
+  const deleteJudge = useCallback(async (id: string) => {
+    await apiClient.judges.delete(id);
+    await fetchJudges();
+  }, [fetchJudges]);
+
   return {
     judges,
     arenaJudges,
@@ -52,5 +69,8 @@ export function useJudges(initialArenaId = "") {
     isLoading,
     error,
     refreshJudges: fetchJudges,
+    addJudge,
+    updateJudge,
+    deleteJudge,
   };
 }

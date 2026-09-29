@@ -19,6 +19,7 @@ import {
   Smartphone,
   ExternalLink,
   ShieldCheck,
+  UserCheck,
   X,
   ChevronLeft,
   ChevronRight,
@@ -45,18 +46,19 @@ export function Sidebar({
 
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Data Turnamen", href: "/tournaments", icon: Trophy },
-    { label: "Atlet & Kontingen", href: "/athletes", icon: User },
-    { label: "Jadwal Pertandingan", href: "/matches", icon: Swords },
-    { label: "Gelanggang & Juri", href: "/arenas", icon: Layers },
-    { label: "Dokumen & Cetak", href: "/reports", icon: Printer },
+    { label: "Turnamen", href: "/tournaments", icon: Trophy },
+    { label: "Atlet", href: "/athletes", icon: User },
+    { label: "Jadwal", href: "/matches", icon: Swords },
+    { label: "Arena", href: "/arenas", icon: Layers },
+    { label: "Juri", href: "/judges", icon: UserCheck },
+    { label: "Laporan", href: "/reports", icon: Printer },
     { label: "Pengaturan", href: "/settings", icon: Settings },
   ];
 
   const externalPortals = [
-    { label: "Mode Juri (Mobile)", href: "/judge", icon: Smartphone },
-    { label: "Layar TV Scoreboard", href: "/display/ARENA-01", icon: Tv, target: "_blank" },
-    { label: "OBS Streaming Overlay", href: "/overlay/ARENA-01", icon: Cast, target: "_blank" },
+    { label: "Mode Juri", href: "/judge", icon: Smartphone },
+    { label: "Scoreboard", href: "/display/ARENA-01", icon: Tv, target: "_blank" },
+    { label: "OBS", href: "/overlay/ARENA-01", icon: Cast, target: "_blank" },
   ];
 
   return (
@@ -96,9 +98,6 @@ export function Sidebar({
                   <h1 className="text-xl font-extrabold text-slate-900 dark:text-[#ffd165] tracking-tight leading-none truncate">
                     PAGAR
                   </h1>
-                  <p className="text-[11px] text-slate-500 dark:text-[#d3c5ac] mt-1 font-medium truncate">
-                    Sistem Scoring Pencak Silat
-                  </p>
                 </div>
               )}
             </Link>
@@ -113,22 +112,13 @@ export function Sidebar({
             </button>
           </div>
 
-          {!isCollapsed && (
-            <div className="mt-3.5 inline-flex px-2.5 py-1 bg-slate-100 dark:bg-[#273649] rounded-md text-[10px] font-bold text-slate-700 dark:text-[#d5e3fd] tracking-wider w-fit border border-slate-200 dark:border-[#4f4633] transition-all">
-              ALE-ALE EDITION
-            </div>
-          )}
         </div>
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto space-y-1 pr-0.5 overflow-x-hidden">
-          {!isCollapsed ? (
-            <div className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#94a3b8]">
-              Menu Utama
-            </div>
-          ) : (
+          {isCollapsed ? (
             <div className="hidden lg:block my-2 h-px bg-slate-200 dark:bg-[#273649]/60" />
-          )}
+          ) : null}
 
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -164,13 +154,9 @@ export function Sidebar({
 
           {/* External Portals Section */}
           <div className={cn("pt-3 border-t border-slate-200 dark:border-[#273649]/60", isCollapsed ? "mt-3" : "mt-6")}>
-            {!isCollapsed ? (
-              <div className="px-2 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#94a3b8]">
-                Portal Pertandingan
-              </div>
-            ) : (
+            {isCollapsed ? (
               <div className="hidden lg:block mb-2 h-px bg-slate-200 dark:bg-[#273649]/60" />
-            )}
+            ) : null}
 
             {externalPortals.map((item) => {
               const Icon = item.icon;

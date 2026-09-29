@@ -59,6 +59,39 @@ export function useAthletes() {
     [fetchAthletes]
   );
 
+  const updateAthlete = useCallback(
+    async (id: string, data: CreateAthleteDto) => {
+      setIsSubmitting(true);
+      try {
+        const updated = await apiClient.athletes.update(id, data);
+        await fetchAthletes();
+        return updated;
+      } catch (err) {
+        console.error("Error updating athlete:", err);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [fetchAthletes]
+  );
+
+  const deleteAthlete = useCallback(
+    async (id: string) => {
+      setIsSubmitting(true);
+      try {
+        await apiClient.athletes.delete(id);
+        await fetchAthletes();
+      } catch (err) {
+        console.error("Error deleting athlete:", err);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [fetchAthletes]
+  );
+
   return {
     athletes,
     filteredAthletes,
@@ -70,6 +103,8 @@ export function useAthletes() {
     isSubmitting,
     error,
     addAthlete,
+    updateAthlete,
+    deleteAthlete,
     refreshAthletes: fetchAthletes,
   };
 }

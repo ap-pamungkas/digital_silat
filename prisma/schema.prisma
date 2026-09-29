@@ -295,9 +295,10 @@ model Judge {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  arena       Arena        @relation(fields: [arenaId], references: [id], onDelete: Cascade)
+  user        User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  arena       Arena          @relation(fields: [arenaId], references: [id], onDelete: Cascade)
   scoreEvents ScoreEvent[]
+  sessions    JudgeSession[]
 
   @@unique([arenaId, judgeNumber])
   @@map("judges")
@@ -346,9 +347,10 @@ model Match {
   blueAthlete   Athlete    @relation("BlueAthleteMatches", fields: [blueAthleteId], references: [id], onDelete: Restrict)
   winnerAthlete Athlete?   @relation("WinnerAthleteMatches", fields: [winnerAthleteId], references: [id], onDelete: SetNull)
 
-  scoreEvents ScoreEvent[]
-  penalties   Penalty[]
-  auditLogs   AuditLog[]
+  scoreEvents   ScoreEvent[]
+  penalties     Penalty[]
+  auditLogs     AuditLog[]
+  judgeSessions JudgeSession[]
 
   @@map("matches")
 }
@@ -420,4 +422,26 @@ model AuditLog {
   @@index([matchId])
   @@index([userId])
   @@map("audit_logs")
+}
+
+// ----------------------------------------------------
+// 12. JUDGE SESSION (SESI JURI PER MATCH)
+// ----------------------------------------------------
+
+model JudgeSession {
+  id         String           @id @default(cuid())
+  matchId    String
+  judgeId    String
+  accessCode String           @unique // e.g. "A72F9"
+  deviceInfo String?
+  loginAt    DateTime?
+  status     ConnectionStatus @default(OFFLINE)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  judge Judge @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, judgeId])
+  @@map("judge_sessions")
 }
