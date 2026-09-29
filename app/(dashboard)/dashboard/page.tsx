@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useScoring, useDashboard } from "@/hooks";
+import { useDashboard } from "@/hooks";
 import { StatCard } from "@/components/dashboard/StatCard";
 import {
   MapPin,
@@ -28,8 +28,7 @@ import {
 } from "lucide-react";
 
 export default function DashboardOverviewPage() {
-  const { activeMatch, matches } = useScoring();
-  const { tournament, stats } = useDashboard();
+  const { tournament, stats, matches, arenas, activeMatch, auditLogs } = useDashboard();
 
   const todayMatches = matches.slice(0, 5);
 
@@ -211,7 +210,7 @@ export default function DashboardOverviewPage() {
                 </tr>
               </thead>
               <tbody className="text-xs divide-y divide-slate-100 dark:divide-[#273649]">
-                {todayMatches.map((match) => (
+                {todayMatches.length ? todayMatches.map((match) => (
                   <tr key={match.id} className="hover:bg-slate-50 dark:hover:bg-[#1c2b3e]/60 transition-colors group">
                     <td className="p-3.5 pl-5 font-bold text-slate-900 dark:text-[#d5e3fd]">
                       {match.matchNumber.replace("MATCH ", "")}
@@ -247,7 +246,13 @@ export default function DashboardOverviewPage() {
                       </span>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-[#94a3b8]">
+                      Belum ada data pertandingan di database.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -268,121 +273,58 @@ export default function DashboardOverviewPage() {
             </Link>
           </div>
 
-          {/* Gelanggang A */}
-          <div className="bg-white dark:bg-[#0d1c2f] border border-amber-300 dark:border-[#eab308]/40 rounded-xl p-4 shadow-xs dark:shadow-[0_0_15px_rgba(234,179,8,0.1)] relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-16 h-16 bg-amber-500/10 dark:bg-[#ffd165]/10 rounded-bl-full flex items-start justify-end p-3 pointer-events-none">
-              <span className="animate-pulse w-2.5 h-2.5 rounded-full bg-amber-500 dark:bg-[#ffd165] mt-1 mr-1" />
-            </div>
+          {arenas.length ? arenas.map((arena, index) => {
+            const arenaMatch =
+              matches.find((match) => match.id === arena.currentMatchId) ||
+              (activeMatch?.arenaId === arena.id && activeMatch.status === "LIVE" ? activeMatch : null) ||
+              matches.find((match) => match.arenaId === arena.id && match.status === "LIVE") ||
+              matches.find((match) => match.arenaId === arena.id && ["READY", "SCHEDULED"].includes(match.status));
+            const isLive = arenaMatch?.status === "LIVE";
 
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-500 dark:bg-[#eab308] text-slate-950 dark:text-[#604700] flex items-center justify-center font-black text-lg shadow-xs">
-                A
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-[#d5e3fd] text-sm">Gelanggang A</h3>
-                <p className="text-[10px] font-bold text-amber-600 dark:text-[#ffd165] tracking-wider">
-                  SEDANG BERLANGSUNG
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-[#273649]/60 rounded-lg p-3 border border-slate-200 dark:border-[#273649]">
-              <div className="flex justify-between items-center mb-2 text-xs">
-                <span className="text-slate-600 dark:text-[#d3c5ac]">
-                  Partai <strong className="text-slate-900 dark:text-[#d5e3fd]">#023</strong>
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 bg-white dark:bg-[#051426] rounded border border-slate-200 dark:border-[#273649] text-amber-600 dark:text-[#ffd165]">
-                  Babak {activeMatch.currentRound}/3
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-600 rounded-full shadow-xs" />
-                  <span className="text-slate-900 dark:text-[#d5e3fd]">{activeMatch.redAthlete.name.split(" ")[0]}</span>
-                  <span className="font-mono text-red-600 ml-1 font-bold">
-                    {activeMatch.redScore}
-                  </span>
+            return (
+              <div key={arena.id} className={`bg-white dark:bg-[#0d1c2f] border ${isLive ? "border-amber-300 dark:border-[#eab308]/40" : "border-slate-200 dark:border-[#273649]"} rounded-xl p-4 shadow-xs relative overflow-hidden`}>
+                {isLive ? (
+                  <div className="absolute right-0 top-0 w-16 h-16 bg-amber-500/10 dark:bg-[#ffd165]/10 rounded-bl-full flex items-start justify-end p-3 pointer-events-none">
+                    <span className="animate-pulse w-2.5 h-2.5 rounded-full bg-amber-500 dark:bg-[#ffd165] mt-1 mr-1" />
+                  </div>
+                ) : null}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-lg ${isLive ? "bg-amber-500 dark:bg-[#eab308] text-slate-950 dark:text-[#604700]" : "bg-slate-100 dark:bg-[#273649] border border-slate-200 dark:border-[#273649] text-slate-700 dark:text-[#d5e3fd]"}`}>
+                    {arena.id.replace("ARENA-0", "").replace("ARENA-", "") || index + 1}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-[#d5e3fd] text-sm">{arena.name}</h3>
+                    <p className={`text-[10px] font-bold tracking-wider ${isLive ? "text-amber-600 dark:text-[#ffd165]" : "text-slate-500 dark:text-[#d3c5ac]"}`}>
+                      {isLive ? "SEDANG BERLANGSUNG" : arenaMatch ? "SIAP (BERIKUTNYA)" : arena.status === "MAINTENANCE" ? "PEMELIHARAAN" : "TIDAK AKTIF"}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[10px] text-slate-400 dark:text-[#94a3b8]">VS</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-blue-600 mr-1 font-bold">
-                    {activeMatch.blueScore}
-                  </span>
-                  <span className="text-slate-900 dark:text-[#d5e3fd]">{activeMatch.blueAthlete.name.split(" ")[0]}</span>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full shadow-xs" />
+                <div className="bg-slate-50 dark:bg-[#273649]/40 rounded-lg p-3 border border-slate-200 dark:border-[#273649]">
+                  {arenaMatch ? (
+                    <>
+                      <div className="flex justify-between items-center mb-2 text-xs">
+                        <span className="text-slate-600 dark:text-[#d3c5ac]">Partai <strong className="text-slate-900 dark:text-[#d5e3fd]">{arenaMatch.matchNumber}</strong></span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 bg-white dark:bg-[#051426] rounded border border-slate-200 dark:border-[#273649] text-amber-600 dark:text-[#ffd165]">Babak {arenaMatch.currentRound}/{arenaMatch.totalRounds}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-semibold gap-2">
+                        <span className="truncate text-slate-900 dark:text-[#d5e3fd]"><span className="text-red-600">{arenaMatch.redScore}</span> {arenaMatch.redAthlete.name}</span>
+                        <span className="text-[10px] text-slate-400 dark:text-[#94a3b8]">VS</span>
+                        <span className="truncate text-right text-slate-900 dark:text-[#d5e3fd]">{arenaMatch.blueAthlete.name} <span className="text-blue-600">{arenaMatch.blueScore}</span></span>
+                      </div>
+                      <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#273649]/80 flex items-center justify-between text-[11px]">
+                        <Link href={`/live-scoring/${arenaMatch.id}`} className="text-amber-600 hover:text-amber-700 dark:text-[#ffd165] dark:hover:text-[#f7be1d] font-semibold flex items-center gap-1"><Play className="w-3 h-3 fill-current" /> Kontrol Juri</Link>
+                        <Link href={`/display/${arena.id}`} target="_blank" className="text-slate-500 hover:text-slate-900 dark:text-[#94a3b8] dark:hover:text-white flex items-center gap-1"><Tv className="w-3 h-3 text-emerald-500" /> Layar TV</Link>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-[#94a3b8]">Belum ada pertandingan terjadwal.</p>
+                  )}
                 </div>
               </div>
-
-              <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#273649]/80 flex items-center justify-between text-[11px]">
-                <Link
-                  href={`/live-scoring/${activeMatch.id}`}
-                  className="text-amber-600 hover:text-amber-700 dark:text-[#ffd165] dark:hover:text-[#f7be1d] font-semibold flex items-center gap-1"
-                >
-                  <Play className="w-3 h-3 fill-current" /> Kontrol Juri
-                </Link>
-                <Link
-                  href={`/display/${activeMatch.arenaId}`}
-                  target="_blank"
-                  className="text-slate-500 hover:text-slate-900 dark:text-[#94a3b8] dark:hover:text-white flex items-center gap-1"
-                >
-                  <Tv className="w-3 h-3 text-emerald-500" /> Layar TV
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Gelanggang B */}
-          <div className="bg-white dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#273649] rounded-xl p-4 hover:border-amber-400 dark:hover:border-[#4f4633] transition-colors shadow-xs">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-[#273649] border border-slate-200 dark:border-[#273649] text-slate-700 dark:text-[#d5e3fd] flex items-center justify-center font-bold text-lg">
-                B
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-[#d5e3fd] text-sm">Gelanggang B</h3>
-                <p className="text-[10px] font-bold text-slate-500 dark:text-[#d3c5ac] tracking-wider">
-                  SIAP (BERIKUTNYA)
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-[#273649]/30 rounded-lg p-3 border border-slate-200 dark:border-[#273649] border-dashed">
-              <div className="flex justify-between items-center mb-1 text-xs">
-                <span className="text-slate-600 dark:text-[#d3c5ac]">
-                  Partai <strong className="text-slate-900 dark:text-[#d5e3fd]">#024</strong>
-                </span>
-                <span className="text-[10px] text-slate-400 dark:text-[#94a3b8]">B Putra</span>
-              </div>
-              <p className="text-xs text-slate-800 dark:text-[#d5e3fd] font-medium">Rizky M. vs Dimas S.</p>
-            </div>
-          </div>
-
-          {/* Gelanggang C */}
-          <div className="bg-white dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#273649] rounded-xl p-4 hover:border-amber-400 dark:hover:border-[#4f4633] transition-colors shadow-xs">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-[#273649] border border-slate-200 dark:border-[#273649] text-slate-700 dark:text-[#d5e3fd] flex items-center justify-center font-bold text-lg">
-                C
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-[#d5e3fd] text-sm">Gelanggang C</h3>
-                <p className="text-[10px] font-bold text-slate-400 dark:text-[#94a3b8] tracking-wider">
-                  PERSIAPAN
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-[#273649]/30 rounded-lg p-3 border border-slate-200 dark:border-[#273649] border-dashed">
-              <div className="flex justify-between items-center mb-1 text-xs">
-                <span className="text-slate-600 dark:text-[#d3c5ac]">
-                  Partai <strong className="text-slate-900 dark:text-[#d5e3fd]">#025</strong>
-                </span>
-                <span className="text-[10px] font-medium px-2 py-0.5 bg-white dark:bg-[#051426] rounded border border-slate-200 dark:border-[#273649] text-slate-400 dark:text-[#94a3b8]">
-                  Babak 1/3
-                </span>
-              </div>
-              <p className="text-xs text-slate-800 dark:text-[#d5e3fd] font-medium">Siti R. vs Dewi A.</p>
-            </div>
-          </div>
+            );
+          }) : (
+            <p className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-5 text-xs text-slate-500 dark:text-[#94a3b8]">Belum ada data gelanggang di database.</p>
+          )}
         </div>
       </div>
 
@@ -469,35 +411,18 @@ export default function DashboardOverviewPage() {
             Aktivitas Terbaru
           </h2>
           <div className="space-y-4">
-            <div className="flex gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500 dark:bg-[#ffd165] mt-1 shrink-0 ring-4 ring-slate-100 dark:ring-[#0d1c2f]" />
-              <div>
-                <p className="text-xs text-slate-900 dark:text-[#d5e3fd] font-medium leading-tight">
-                  Jadwal partai <strong className="text-amber-600 dark:text-[#ffd165]">#025</strong> diperbarui
-                </p>
-                <p className="text-[10px] text-slate-400 dark:text-[#94a3b8] mt-0.5">5 menit yang lalu oleh Agustinus</p>
+            {auditLogs.length ? auditLogs.map((log, index) => (
+              <div key={log.id} className="flex gap-3">
+                <div className={`w-2.5 h-2.5 rounded-full ${index === 0 ? "bg-amber-500 dark:bg-[#ffd165]" : "bg-slate-300 dark:bg-[#273649]"} mt-1 shrink-0 ring-4 ring-slate-100 dark:ring-[#0d1c2f]`} />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-900 dark:text-[#d5e3fd] font-medium leading-tight">{log.action.replace(/_/g, " ")}</p>
+                  {log.details ? <p className="text-[10px] text-slate-500 dark:text-[#94a3b8] mt-0.5 truncate">{log.details}</p> : null}
+                  <p className="text-[10px] text-slate-400 dark:text-[#94a3b8] mt-0.5">{new Date(log.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}</p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-[#273649] mt-1 shrink-0 ring-4 ring-slate-100 dark:ring-[#0d1c2f]" />
-              <div>
-                <p className="text-xs text-slate-900 dark:text-[#d5e3fd] font-medium leading-tight">
-                  Dokumen hasil partai <strong className="text-slate-800 dark:text-[#d5e3fd]">#022</strong> dicetak
-                </p>
-                <p className="text-[10px] text-slate-400 dark:text-[#94a3b8] mt-0.5">15 menit yang lalu oleh Admin2</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-[#273649] mt-1 shrink-0 ring-4 ring-slate-100 dark:ring-[#0d1c2f]" />
-              <div>
-                <p className="text-xs text-slate-900 dark:text-[#d5e3fd] font-medium leading-tight">
-                  Sistem scoring Gelanggang A diaktifkan
-                </p>
-                <p className="text-[10px] text-slate-400 dark:text-[#94a3b8] mt-0.5">1 jam yang lalu oleh System</p>
-              </div>
-            </div>
+            )) : (
+              <p className="text-xs text-slate-500 dark:text-[#94a3b8]">Belum ada aktivitas yang tercatat.</p>
+            )}
           </div>
         </div>
       </div>
