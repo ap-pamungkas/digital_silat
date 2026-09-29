@@ -139,6 +139,134 @@ export default function OperatorLiveScoringPage() {
         </div>
       </div>
 
+      {/* MEJA PUTUSAN SKOR PETUGAS GELANGGANG (OPERATOR DECISION CENTER) */}
+      <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/5 dark:bg-[#0d1c2f] p-5 shadow-xs transition-colors space-y-4">
+        <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 rounded-full bg-amber-500 animate-ping" />
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                Meja Putusan Skor Petugas Gelanggang
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Poin dan usulan juri masuk ke meja ini. Petugas gelanggang mengesahkan atau menolak skor sebelum tampil di papan nilai.
+              </p>
+            </div>
+          </div>
+          <Badge
+            variant={
+              current.events.filter((e) => e.status === "PENDING").length > 0
+                ? "warning"
+                : "outline"
+            }
+          >
+            {current.events.filter((e) => e.status === "PENDING").length} Usulan Menunggu Putusan
+          </Badge>
+        </div>
+
+        {current.events.filter((e) => e.status === "PENDING").length === 0 ? (
+          <div className="p-6 rounded-xl border border-dashed border-slate-200 dark:border-[#273649] text-center text-xs text-slate-500 dark:text-slate-400">
+            Tidak ada antrean usulan skor juri saat ini. Setiap kali juri menekan tombol skor, usulan akan muncul di meja ini untuk diputuskan.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {current.events
+              .filter((e) => e.status === "PENDING")
+              .map((evt) => {
+                const isRed = evt.corner === "RED";
+                const athleteName = isRed
+                  ? current.redAthlete.name
+                  : current.blueAthlete.name;
+                const judges = evt.judgesAgreed || [evt.judgeNumber];
+
+                return (
+                  <div
+                    key={evt.id}
+                    className={`p-4 rounded-xl border-2 transition-all flex flex-col justify-between space-y-3 ${
+                      isRed
+                        ? "bg-red-500/10 border-red-500/50"
+                        : "bg-blue-500/10 border-blue-500/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            isRed ? "bg-red-600" : "bg-blue-600"
+                          }`}
+                        />
+                        <span
+                          className={`text-xs font-bold uppercase tracking-wide ${
+                            isRed
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-blue-600 dark:text-blue-400"
+                          }`}
+                        >
+                          {isRed ? "Sudut Merah" : "Sudut Biru"}
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                          • {evt.matchTime}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {judges.map((j) => (
+                          <span
+                            key={j}
+                            className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-bold text-xs shadow-xs"
+                          >
+                            Juri {j}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-extrabold text-slate-900 dark:text-white">
+                          {athleteName}
+                        </div>
+                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          {evt.action.replace(/_/g, " ")}
+                        </div>
+                      </div>
+
+                      <div
+                        className={`text-3xl font-extrabold font-mono px-3 py-1 rounded-lg ${
+                          isRed
+                            ? "bg-red-600 text-white"
+                            : "bg-blue-600 text-white"
+                        }`}
+                      >
+                        +{evt.points}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/40 dark:border-[#273649]">
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => handleVerifyEvent(evt.id)}
+                        className="font-bold text-xs h-10"
+                      >
+                        ✅ Sahkan (+{evt.points} Poin)
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleRejectEvent(evt.id)}
+                        className="font-bold text-xs h-10"
+                      >
+                        ❌ Tolak Skor
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
       <ScoreBoard match={current} size="lg" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -56,9 +56,22 @@ export function ScoreEventList({
                 <Clock className="w-3 h-3" />
                 {evt.matchTime}
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-[#1F232C] text-white text-xs font-medium border border-[#2A2D36] shrink-0 tabular-nums">
-                J{evt.judgeNumber}
-              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                {evt.judgesAgreed && evt.judgesAgreed.length > 0 ? (
+                  evt.judgesAgreed.map((jNum) => (
+                    <span
+                      key={jNum}
+                      className="px-1.5 py-0.5 rounded bg-[#1F232C] text-amber-300 dark:text-amber-400 text-[11px] font-bold border border-amber-500/30 tabular-nums"
+                    >
+                      J{jNum}
+                    </span>
+                  ))
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded bg-[#1F232C] text-white text-xs font-medium border border-[#2A2D36] shrink-0 tabular-nums">
+                    J{evt.judgeNumber}
+                  </span>
+                )}
+              </div>
               <span
                 className={cn(
                   "text-xs font-semibold shrink-0",
@@ -71,7 +84,7 @@ export function ScoreEventList({
 
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-medium text-white truncate">
-                {evt.action.replace("_", " ")}
+                {evt.action.replace(/_/g, " ")}
               </span>
               <span
                 className={cn(
@@ -85,11 +98,31 @@ export function ScoreEventList({
 
             {isOperator ? (
               <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                {!isRejected && (
+                {evt.status === "PENDING" && (
+                  <>
+                    <button
+                      onClick={() => onVerify?.(evt.id)}
+                      className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                      title="Sahkan & Tambahkan Poin ke Skor Atlet"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Sahkan</span>
+                    </button>
+                    <button
+                      onClick={() => onReject?.(evt.id)}
+                      className="px-2 py-1 rounded-md bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-medium text-xs flex items-center gap-1 border border-rose-500/30 transition-colors cursor-pointer"
+                      title="Tolak Poin Juri"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Tolak</span>
+                    </button>
+                  </>
+                )}
+                {isVerified && (
                   <button
                     onClick={() => onReject?.(evt.id)}
-                    className="p-1.5 rounded-md bg-[#EF4444]/10 text-[#FCA5A5] hover:bg-[#EF4444]/20 border border-[#EF4444]/25 transition-colors"
-                    title="Batalkan / Tolak Poin"
+                    className="p-1.5 rounded-md bg-[#EF4444]/10 text-[#FCA5A5] hover:bg-[#EF4444]/20 border border-[#EF4444]/25 transition-colors cursor-pointer"
+                    title="Batalkan / Anulir Poin"
                   >
                     <XCircle className="w-3.5 h-3.5" />
                   </button>
@@ -97,17 +130,29 @@ export function ScoreEventList({
                 {isRejected && (
                   <button
                     onClick={() => onVerify?.(evt.id)}
-                    className="p-1.5 rounded-md bg-[#22C55E]/10 text-[#86EFAC] hover:bg-[#22C55E]/20 border border-[#22C55E]/25 transition-colors"
-                    title="Pulihkan Poin"
+                    className="p-1.5 rounded-md bg-[#22C55E]/10 text-[#86EFAC] hover:bg-[#22C55E]/20 border border-[#22C55E]/25 transition-colors cursor-pointer"
+                    title="Pulihkan & Sahkan Poin"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
-            ) : (
-              <span className="text-xs text-[#86EFAC] flex items-center gap-1 shrink-0 ml-2">
+            ) : isVerified ? (
+              <span className="text-xs text-emerald-400 font-bold flex items-center gap-1 shrink-0 ml-2">
                 <CheckCircle className="w-3 h-3" />
-                Sah
+                {evt.judgesAgreed && evt.judgesAgreed.length >= 2
+                  ? `Sah (${evt.judgesAgreed.length} Juri)`
+                  : "Sah"}
+              </span>
+            ) : isRejected ? (
+              <span className="text-xs text-rose-400 font-medium flex items-center gap-1 shrink-0 ml-2">
+                <XCircle className="w-3 h-3" />
+                Gugur / Ditolak
+              </span>
+            ) : (
+              <span className="text-xs text-amber-400 font-medium animate-pulse flex items-center gap-1 shrink-0 ml-2">
+                <Clock className="w-3 h-3" />
+                Menunggu Putusan Petugas (0/2)
               </span>
             )}
           </div>

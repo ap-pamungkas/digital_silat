@@ -51,6 +51,7 @@ export interface ScoreEvent {
   timestamp: number;
   verified: boolean;
   status: "VERIFIED" | "PENDING" | "REJECTED";
+  judgesAgreed?: number[];
 }
 
 export interface PenaltyRecord {

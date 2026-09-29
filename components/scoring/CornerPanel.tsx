@@ -106,10 +106,28 @@ export function CornerPanel({
         />
         <ScoreButton
           corner={corner}
+          action="TANGKISAN_PUKULAN"
+          points={2}
+          label="Counter Pukulan"
+          subLabel="Tangkisan/Elakan + Pukulan Masuk"
+          onClick={onScoreAction}
+          disabled={disabled}
+        />
+        <ScoreButton
+          corner={corner}
+          action="TANGKISAN_TENDANGAN"
+          points={3}
+          label="Counter Tendangan"
+          subLabel="Tangkisan/Elakan + Tendangan Masuk"
+          onClick={onScoreAction}
+          disabled={disabled}
+        />
+        <ScoreButton
+          corner={corner}
           action="JATUHAN"
           points={3}
           label="Jatuhan"
-          subLabel="Bantingan / Kuncian"
+          subLabel="Bantingan / Kuncian Sah"
           onClick={onScoreAction}
           disabled={disabled}
         />

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useScoring, useToast } from "@/hooks";
 import { ScoreButton } from "@/components/scoring/ScoreButton";
 import { MatchTimer } from "@/components/scoring/MatchTimer";
@@ -17,11 +17,19 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Users,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export default function JudgeScoringPage() {
+function JudgeScoringContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const matchId = (params?.matchId as string) || "M-001";
+  const urlJuri = searchParams.get("juri");
+
   const { toast } = useToast();
 
   const {
@@ -29,12 +37,24 @@ export default function JudgeScoringPage() {
     activeMatch,
     setActiveMatchId,
     currentJudgeNumber,
+    setCurrentJudgeNumber,
     submitScore,
     applyPenalty,
+    lastFeedback,
   } = useScoring();
 
   const [isPenaltyOpen, setIsPenaltyOpen] = React.useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = React.useState(false);
+
+  // Sync judge number from URL query if provided (e.g. ?juri=2)
+  React.useEffect(() => {
+    if (urlJuri) {
+      const parsed = parseInt(urlJuri, 10);
+      if (parsed >= 1 && parsed <= 5 && parsed !== currentJudgeNumber) {
+        setCurrentJudgeNumber(parsed);
+      }
+    }
+  }, [urlJuri, currentJudgeNumber, setCurrentJudgeNumber]);
 
   React.useEffect(() => {
     if (matchId && matchId !== activeMatch.id) {
@@ -44,22 +64,39 @@ export default function JudgeScoringPage() {
 
   const match = matches.find((m) => m.id === matchId) || activeMatch;
 
-  const handleJudgeScore = (corner: Corner, action: ScoringAction, points: number) => {
-    submitScore(corner, action, points);
+  const handleJudgeScore = (
+    corner: Corner,
+    action: ScoringAction,
+    points: number
+  ) => {
+    submitScore(corner, action, points, currentJudgeNumber);
     toast.info(
-      `+${points} ${action}`,
-      `Juri ${currentJudgeNumber} input ${corner === "RED" ? "Sudut Merah" : "Sudut Biru"}.`,
-      2000
+      `+${points} ${action.replace(/_/g, " ")}`,
+      `Juri ${currentJudgeNumber} input ${
+        corner === "RED" ? "Sudut Merah" : "Sudut Biru"
+      }. (Mencari kuorum 2 juri...)`,
+      1500
     );
   };
 
-  const handleJudgePenalty = (corner: Corner, type: PenaltyType, points: number, note?: string) => {
+  const handleJudgePenalty = (
+    corner: Corner,
+    type: PenaltyType,
+    points: number,
+    note?: string
+  ) => {
     applyPenalty(corner, type, points, note);
     toast.warning(
-      "Hukuman Tercatat",
-      `-${points} Poin pada Sudut ${corner === "RED" ? "Merah" : "Biru"} (${note || type}).`
+      "Hukuman Wasit",
+      `-${points} Poin pada Sudut ${
+        corner === "RED" ? "Merah" : "Biru"
+      } (${note || type}).`
     );
   };
+
+  // Check last feedback consensus message
+  const hasRecentFeedback =
+    lastFeedback && Date.now() - lastFeedback.timestamp < 3500;
 
   return (
     <div className="space-y-3 pb-8 select-none">
@@ -88,12 +125,72 @@ export default function JudgeScoringPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="font-mono text-xs font-bold bg-amber-500 dark:bg-[#eab308] text-slate-950 dark:text-[#604700] px-2.5 py-1 rounded-md shadow-xs">
-            Juri {currentJudgeNumber}
+          {/* Quick Judge Selector */}
+          <div className="flex items-center bg-slate-100 dark:bg-[#1F232C] rounded-lg p-0.5 border border-slate-200 dark:border-[#273649]">
+            {[1, 2, 3, 4, 5].map((num) => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => setCurrentJudgeNumber(num)}
+                className={cn(
+                  "px-2 py-1 text-xs font-bold rounded-md transition-all",
+                  currentJudgeNumber === num
+                    ? "bg-amber-500 text-slate-950 dark:bg-[#ffd165] dark:text-[#604700] shadow-xs scale-105"
+                    : "text-slate-600 dark:text-[#94A3B8] hover:text-slate-900 dark:hover:text-white"
+                )}
+                title={`Pindah ke Juri ${num}`}
+              >
+                J{num}
+              </button>
+            ))}
           </div>
           <JudgeStatus status="ONLINE" pingMs={18} showText={false} />
         </div>
       </header>
+
+      {/* Consensus Notification Banner */}
+      {hasRecentFeedback && (
+        <div
+          className={cn(
+            "p-3 rounded-xl border flex items-center justify-between transition-all duration-200 animate-in fade-in slide-in-from-top-1",
+            lastFeedback.status === "VERIFIED"
+              ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+              : lastFeedback.status === "PENDING"
+              ? "bg-amber-500/15 border-amber-500/40 text-amber-300"
+              : "bg-rose-500/15 border-rose-500/40 text-rose-300"
+          )}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            {lastFeedback.status === "VERIFIED" ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            ) : lastFeedback.status === "PENDING" ? (
+              <Clock className="w-5 h-5 text-amber-400 animate-spin shrink-0" />
+            ) : (
+              <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            )}
+            <div className="min-w-0">
+              <div className="text-xs font-bold uppercase tracking-wider">
+                {lastFeedback.status === "VERIFIED"
+                  ? `SKOR SAH! (+${lastFeedback.points} ${lastFeedback.corner === "RED" ? "MERAH" : "BIRU"})`
+                  : lastFeedback.status === "PENDING"
+                  ? `MENUNGGU VALIDASI JURI LAIN (0/2)`
+                  : `SKOR GUGUR (TIDAK MENCAPAI 2 JURI)`}
+              </div>
+              <div className="text-[11px] opacity-90 truncate">
+                {lastFeedback.action.replace(/_/g, " ")} • Juri Sepakat:{" "}
+                {lastFeedback.agreedJudges.map((j) => `J${j}`).join(", ")}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0 ml-2">
+            <Users className="w-4 h-4 opacity-75" />
+            <span className="font-mono font-bold text-xs">
+              {lastFeedback.agreedJudges.length}/2
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-3 shadow-xs transition-colors">
         <MatchTimer
@@ -130,13 +227,13 @@ export default function JudgeScoringPage() {
             </div>
           </div>
 
-          <div className="p-3 sm:p-4 space-y-2.5 bg-slate-50/50 dark:bg-[#0d1c2f]">
+          <div className="p-3 sm:p-4 space-y-2 bg-slate-50/50 dark:bg-[#0d1c2f]">
             <ScoreButton
               corner="RED"
               action="PUKULAN"
               points={1}
               label="Pukulan"
-              subLabel="Tangan Sah"
+              subLabel="Serangan Tangan Sah"
               onClick={handleJudgeScore}
             />
             <ScoreButton
@@ -144,7 +241,23 @@ export default function JudgeScoringPage() {
               action="TENDANGAN"
               points={2}
               label="Tendangan"
-              subLabel="Kaki Sah"
+              subLabel="Serangan Kaki Sah"
+              onClick={handleJudgeScore}
+            />
+            <ScoreButton
+              corner="RED"
+              action="TANGKISAN_PUKULAN"
+              points={2}
+              label="Counter Pukulan"
+              subLabel="Tangkisan + Pukulan Masuk"
+              onClick={handleJudgeScore}
+            />
+            <ScoreButton
+              corner="RED"
+              action="TANGKISAN_TENDANGAN"
+              points={3}
+              label="Counter Tendangan"
+              subLabel="Tangkisan + Tendangan Masuk"
               onClick={handleJudgeScore}
             />
             <ScoreButton
@@ -152,7 +265,7 @@ export default function JudgeScoringPage() {
               action="JATUHAN"
               points={3}
               label="Jatuhan"
-              subLabel="Bantingan / Kuncian"
+              subLabel="Bantingan / Kuncian Sah"
               onClick={handleJudgeScore}
             />
           </div>
@@ -182,13 +295,13 @@ export default function JudgeScoringPage() {
             </div>
           </div>
 
-          <div className="p-3 sm:p-4 space-y-2.5 bg-slate-50/50 dark:bg-[#0d1c2f]">
+          <div className="p-3 sm:p-4 space-y-2 bg-slate-50/50 dark:bg-[#0d1c2f]">
             <ScoreButton
               corner="BLUE"
               action="PUKULAN"
               points={1}
               label="Pukulan"
-              subLabel="Tangan Sah"
+              subLabel="Serangan Tangan Sah"
               onClick={handleJudgeScore}
             />
             <ScoreButton
@@ -196,7 +309,23 @@ export default function JudgeScoringPage() {
               action="TENDANGAN"
               points={2}
               label="Tendangan"
-              subLabel="Kaki Sah"
+              subLabel="Serangan Kaki Sah"
+              onClick={handleJudgeScore}
+            />
+            <ScoreButton
+              corner="BLUE"
+              action="TANGKISAN_PUKULAN"
+              points={2}
+              label="Counter Pukulan"
+              subLabel="Tangkisan + Pukulan Masuk"
+              onClick={handleJudgeScore}
+            />
+            <ScoreButton
+              corner="BLUE"
+              action="TANGKISAN_TENDANGAN"
+              points={3}
+              label="Counter Tendangan"
+              subLabel="Tangkisan + Tendangan Masuk"
               onClick={handleJudgeScore}
             />
             <ScoreButton
@@ -204,7 +333,7 @@ export default function JudgeScoringPage() {
               action="JATUHAN"
               points={3}
               label="Jatuhan"
-              subLabel="Bantingan / Kuncian"
+              subLabel="Bantingan / Kuncian Sah"
               onClick={handleJudgeScore}
             />
           </div>
@@ -230,7 +359,7 @@ export default function JudgeScoringPage() {
           >
             <div className="flex items-center gap-2">
               <History className="w-3.5 h-3.5 text-amber-600 dark:text-[#ffd165]" />
-              <span>Riwayat Poin Masuk ({match.events.length})</span>
+              <span>Riwayat Penilaian ({match.events.length})</span>
             </div>
             {isHistoryExpanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -241,7 +370,7 @@ export default function JudgeScoringPage() {
 
           {isHistoryExpanded && (
             <div className="p-3 border-t border-slate-100 dark:border-[#273649]">
-              <ScoreEventList events={match.events} maxItems={8} />
+              <ScoreEventList events={match.events} maxItems={10} />
             </div>
           )}
         </div>
@@ -257,3 +386,12 @@ export default function JudgeScoringPage() {
     </div>
   );
 }
+
+export default function JudgeScoringPage() {
+  return (
+    <React.Suspense fallback={<div className="p-6 text-center text-slate-400">Memuat Scoring Pad...</div>}>
+      <JudgeScoringContent />
+    </React.Suspense>
+  );
+}
+
