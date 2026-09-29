@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Judge } from "@/lib/types";
+import { ConnectionStatus, Judge } from "@/lib/types";
 
 export async function getJudges(): Promise<Judge[]> {
   try {
@@ -31,6 +31,7 @@ export async function getJudges(): Promise<Judge[]> {
       id: judge.id || `JURI-${judge.arena.arenaCode}-${judge.judgeNumber}`,
       judgeNumber: judge.judgeNumber,
       name: judge.name,
+      licenseNumber: judge.licenseNumber ?? undefined,
       arenaId: judge.arena.arenaCode,
       status: judge.status as "ONLINE" | "SYNCING" | "RECONNECTING" | "OFFLINE",
       batteryLevel: judge.batteryLevel ?? undefined,
@@ -83,6 +84,7 @@ export async function createJudgeAction(data: {
         id: true,
         judgeNumber: true,
         name: true,
+        licenseNumber: true,
         status: true,
         batteryLevel: true,
         pingMs: true,
@@ -97,6 +99,7 @@ export async function createJudgeAction(data: {
         id: judge.id,
         judgeNumber: judge.judgeNumber,
         name: judge.name,
+        licenseNumber: judge.licenseNumber ?? undefined,
         arenaId: arena.arenaCode,
         status: judge.status,
         batteryLevel: judge.batteryLevel ?? undefined,
@@ -116,7 +119,7 @@ export async function createJudgeAction(data: {
   }
 }
 
-export async function updateJudgeAction(id: string, data: { name?: string; licenseNumber?: string; status?: string; pingMs?: number; batteryLevel?: number }) {
+export async function updateJudgeAction(id: string, data: { name?: string; licenseNumber?: string; status?: ConnectionStatus; pingMs?: number; batteryLevel?: number }) {
   try {
     const judge = await prisma.judge.update({
       where: { id },
@@ -129,16 +132,22 @@ export async function updateJudgeAction(id: string, data: { name?: string; licen
       },
       select: {
         id: true,
+        arenaId: true,
         judgeNumber: true,
         name: true,
+        licenseNumber: true,
         status: true,
         batteryLevel: true,
         pingMs: true,
         device: true,
         lastActiveAt: true,
-        arena: { select: { arenaCode: true } },
       },
     });
+    const arena = await prisma.arena.findUnique({
+      where: { id: judge.arenaId },
+      select: { arenaCode: true },
+    });
+    if (!arena) throw new Error("Gelanggang juri tidak ditemukan.");
 
     return {
       success: true as const,
@@ -146,7 +155,8 @@ export async function updateJudgeAction(id: string, data: { name?: string; licen
         id: judge.id,
         judgeNumber: judge.judgeNumber,
         name: judge.name,
-        arenaId: judge.arena.arenaCode,
+        licenseNumber: judge.licenseNumber ?? undefined,
+        arenaId: arena.arenaCode,
         status: judge.status,
         batteryLevel: judge.batteryLevel ?? undefined,
         pingMs: judge.pingMs ?? undefined,

@@ -38,6 +38,7 @@ export interface Judge {
   id: string; // e.g., "JURI_1"
   judgeNumber: number; // 1 to 5
   name: string;
+  licenseNumber?: string;
   arenaId: string;
   status: ConnectionStatus;
   batteryLevel?: number; // 0 to 100

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { updateJudgeAction, deleteJudgeAction } from "@/lib/data-service";
+import { ConnectionStatus } from "@/lib/types";
+
+type RouteContext = { params: Promise<{ id: string }> };
+const connectionStatuses: ConnectionStatus[] = ["ONLINE", "SYNCING", "RECONNECTING", "OFFLINE"];
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const id = params.id;
+    const { id } = await params;
     const body: unknown = await request.json();
     
     if (!body || typeof body !== "object") {
@@ -16,15 +20,19 @@ export async function PATCH(
     const { name, licenseNumber, status, pingMs, batteryLevel } = body as {
       name?: string;
       licenseNumber?: string;
-      status?: string;
+      status?: unknown;
       pingMs?: number;
       batteryLevel?: number;
     };
 
+    if (status !== undefined && (typeof status !== "string" || !connectionStatuses.includes(status as ConnectionStatus))) {
+      return NextResponse.json({ error: "Status juri tidak valid." }, { status: 400 });
+    }
+
     const result = await updateJudgeAction(id, {
       name,
       licenseNumber,
-      status,
+      status: status as ConnectionStatus | undefined,
       pingMs,
       batteryLevel,
     });
@@ -42,10 +50,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const id = params.id;
+    const { id } = await params;
     const result = await deleteJudgeAction(id);
 
     if (!result.success) {
