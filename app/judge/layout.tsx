@@ -1,21 +1,18 @@
-import { redirect } from "next/navigation";
 import type * as React from "react";
 import { ScoringProvider } from "@/lib/scoring-store";
 import { ToastProvider } from "@/components/ui/Toast";
-import { JUDGE_ROLES, getSessionUser } from "@/lib/auth/session";
 
-export default async function JudgeLayout({
+/**
+ * Judge device area. Judges authenticate with the operator-generated access
+ * code (verified into an HttpOnly device cookie), never with email/password,
+ * so this layout performs no Supabase redirect. Write APIs remain the
+ * authoritative server-side gate; pages add a client-side session check.
+ */
+export default function JudgeLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getSessionUser();
-
-  if (!user) redirect("/login");
-  if (!JUDGE_ROLES.includes(user.role)) {
-    redirect(user.role === "OPERATOR" ? "/dashboard" : "/access-denied");
-  }
-
   return (
     <ScoringProvider>
       <ToastProvider>

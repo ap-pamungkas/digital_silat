@@ -24,7 +24,8 @@ const PROTECTED_PAGES = [
   "/reports",
   "/settings",
   "/live-scoring",
-  "/judge",
+  // NOTE: "/judge" is intentionally public. Judges authenticate with the
+  // operator-generated access code (device cookie), not a Supabase session.
 ];
 
 function isProtectedPath(pathname: string): boolean {
@@ -94,7 +95,6 @@ export const config = {
     "/reports/:path*",
     "/settings/:path*",
     "/live-scoring/:path*",
-    "/judge/:path*",
     "/login",
   ],
 };

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useScoring, useToast, useJudges } from "@/hooks";
+import { JudgeSessionGate } from "@/components/judge/JudgeSessionGate";
 import { ScoreButton } from "@/components/scoring/ScoreButton";
 import { MatchTimer } from "@/components/scoring/MatchTimer";
 import { PenaltyDialog } from "@/components/scoring/PenaltyDialog";
@@ -453,9 +454,13 @@ function JudgeScoringContent() {
 }
 
 export default function JudgeScoringPage() {
+  const params = useParams();
+  const matchId = typeof params?.matchId === "string" ? params.matchId : "";
   return (
     <React.Suspense fallback={<div className="p-6 text-center text-slate-400">Memuat Scoring Pad...</div>}>
-      <JudgeScoringContent />
+      <JudgeSessionGate matchId={matchId || undefined}>
+        <JudgeScoringContent />
+      </JudgeSessionGate>
     </React.Suspense>
   );
 }

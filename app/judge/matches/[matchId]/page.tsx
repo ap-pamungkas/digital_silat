@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useScoring } from "@/lib/scoring-store";
+import { JudgeSessionGate } from "@/components/judge/JudgeSessionGate";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ArrowLeft, ArrowRight, ShieldCheck, Trophy } from "lucide-react";
@@ -24,6 +25,7 @@ export default function JudgeMatchBriefingPage() {
   }
 
   return (
+    <JudgeSessionGate matchId={matchId}>
     <div className="space-y-6 max-w-md mx-auto py-4">
       <div className="flex items-center justify-between">
         <Link
@@ -96,5 +98,6 @@ export default function JudgeMatchBriefingPage() {
         </Button>
       </Link>
     </div>
+    </JudgeSessionGate>
   );
 }

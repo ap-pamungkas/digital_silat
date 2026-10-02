@@ -60,7 +60,13 @@ export const POST = withRouteHandler<{ matchId: string }, unknown>(async (_reque
       prisma.judgeSession.upsert({
         where: { matchId_judgeId: { matchId, judgeId: judge.id } },
         create: { matchId, judgeId: judge.id, accessCode },
-        update: { accessCode, loginAt: null, status: "OFFLINE" },
+        update: {
+          accessCode,
+          loginAt: null,
+          status: "OFFLINE",
+          sessionToken: null,
+          sessionTokenExpiresAt: null,
+        },
       })
     )
   );

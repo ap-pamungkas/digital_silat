@@ -434,6 +434,8 @@ model JudgeSession {
   matchId    String
   judgeId    String
   accessCode String           @unique // e.g. "A72F9"
+  sessionToken String?         @unique // token perangkat juri dari kode operator
+  sessionTokenExpiresAt DateTime? // kedaluwarsa token perangkat
   deviceInfo String?
   loginAt    DateTime?
   status     ConnectionStatus @default(OFFLINE)

@@ -12,6 +12,13 @@ export interface VerifyJudgeSessionDto {
   accessCode: string;
 }
 
+export interface JudgeDeviceSessionDto {
+  matchId: string;
+  judgeId: string;
+  judgeNumber: number;
+  judgeName: string;
+}
+
 export const judgeSessionsApi = {
   listByMatch: (matchId: string): Promise<JudgeSessionAccess[]> => {
     return http.get<JudgeSessionAccess[]>(`/api/matches/${matchId}/judge-sessions`);
@@ -23,5 +30,9 @@ export const judgeSessionsApi = {
 
   verify: (data: VerifyJudgeSessionDto): Promise<{ success: boolean }> => {
     return http.post<{ success: boolean }>("/api/judge-sessions/verify", data);
+  },
+
+  me: (): Promise<JudgeDeviceSessionDto> => {
+    return http.get<JudgeDeviceSessionDto>("/api/judge-sessions/me");
   },
 };

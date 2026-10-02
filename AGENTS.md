@@ -1417,10 +1417,19 @@ Layered access control:
 ```text
 proxy.ts                     # refresh session cookie, guard protected pages
 app/(dashboard)/layout.tsx   # server guard: OPERATOR_ROLES
-app/judge/layout.tsx         # server guard: JUDGE_ROLES
 app/access-denied/page.tsx   # landing page for a valid session without permission
 lib/auth/session.ts          # requireSessionUser() for every mutating route
 ```
 
-`/display/*` and `/overlay/*` stay public, and the read-only `GET` routes they
-depend on must stay readable without a session.
+`/display/*`, `/overlay/*`, and `/judge/*` stay public, and the read-only
+`GET` routes they depend on must stay readable without a session.
+
+Judges never log in with email/password. The operator generates a per-match
+access code for each judge slot (`POST /api/matches/[matchId]/judge-sessions`,
+OPERATOR_ROLES only). The judge verifies the code on `/judge`
+(`POST /api/judge-sessions/verify`, public by design), which issues an
+HttpOnly device cookie (`judge_session`) backed by
+`JudgeSession.sessionToken`. Score and penalty writes accept either a
+Supabase session with a scoring role or that device token bound to the same
+match and judge slot (`lib/auth/judge-session.ts` → `requireScoringAccess()`).
+Regenerating the codes clears the tokens and logs the devices out.

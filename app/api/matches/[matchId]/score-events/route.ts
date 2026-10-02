@@ -1,7 +1,7 @@
 import { withRouteHandler, parseBody } from "@/lib/server/handler";
 import { getMatchScoringSnapshot, submitScoreEventAction } from "@/lib/data-service";
 import { submitScoreEventSchema } from "@/lib/validation";
-import { SCORING_ROLES, requireSessionUser } from "@/lib/auth/session";
+import { requireScoringAccess } from "@/lib/auth/judge-session";
 
 export const GET = withRouteHandler<{ matchId: string }, unknown>(async (_request, { params }) => {
   const { matchId } = await params;
@@ -9,9 +9,9 @@ export const GET = withRouteHandler<{ matchId: string }, unknown>(async (_reques
 });
 
 export const POST = withRouteHandler<{ matchId: string }, unknown>(async (request, { params }) => {
-  await requireSessionUser(SCORING_ROLES);
   const { matchId } = await params;
   const body = await parseBody(submitScoreEventSchema, request);
+  await requireScoringAccess(matchId, body.judgeNumber);
 
   const result = await submitScoreEventAction({
     matchId,

@@ -1,11 +1,21 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withRouteHandler, parseJson } from "@/lib/server/handler";
 import { UnauthorizedError, ValidationError } from "@/lib/server/errors";
 import { verifyJudgeSessionSchema } from "@/lib/validation";
-import { JUDGE_ROLES, requireSessionUser } from "@/lib/auth/session";
+import {
+  JUDGE_SESSION_COOKIE,
+  JUDGE_SESSION_TTL_MS,
+  judgeSessionExpiry,
+  newJudgeSessionToken,
+} from "@/lib/auth/judge-session";
 
+/**
+ * Public on purpose: the operator-generated access code IS the judge's
+ * credential. Judges never log in with email/password. On success the
+ * device receives an HttpOnly cookie bound to this match + judge slot.
+ */
 export const POST = withRouteHandler(async (request) => {
-  await requireSessionUser(JUDGE_ROLES);
   let body: unknown;
   try {
     body = await parseJson(request);
@@ -34,10 +44,16 @@ export const POST = withRouteHandler(async (request) => {
   }
 
   const loginAt = new Date();
+  const sessionToken = newJudgeSessionToken();
   await prisma.$transaction([
     prisma.judgeSession.update({
       where: { id: session.id },
-      data: { loginAt, status: "ONLINE" },
+      data: {
+        loginAt,
+        status: "ONLINE",
+        sessionToken,
+        sessionTokenExpiresAt: judgeSessionExpiry(loginAt),
+      },
     }),
     prisma.judge.update({
       where: { id: session.judgeId },
@@ -45,5 +61,13 @@ export const POST = withRouteHandler(async (request) => {
     }),
   ]);
 
-  return { data: { success: true } };
+  const response = NextResponse.json({ data: { success: true } });
+  response.cookies.set(JUDGE_SESSION_COOKIE, sessionToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: Math.floor(JUDGE_SESSION_TTL_MS / 1000),
+    secure: process.env.NODE_ENV === "production",
+  });
+  return response;
 });

@@ -3,8 +3,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    globals: true,
     environment: "node",
-    include: ["**/*.test.ts"],
+    // .test.tsx files opt into jsdom via a `// @vitest-environment jsdom` pragma.
+    include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**", ".next/**", "lib/generated/**"],
   },
   resolve: {
