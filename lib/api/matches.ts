@@ -1,7 +1,18 @@
 import { http } from "./http";
-import { Corner, Match, MatchStatus, MatchWinReason, ScoreEvent, PenaltyRecord, ScoringAction, TimerStatus } from "@/lib/types";
+import {
+  Corner,
+  Match,
+  MatchStage,
+  MatchStatus,
+  MatchTimerAction,
+  MatchWinReason,
+  ScoreEvent,
+  PenaltyRecord,
+  ScoringAction,
+  TimerStatus,
+} from "@/lib/types";
 
-export type MatchTimerAction = "START" | "PAUSE" | "RESET" | "NEXT_ROUND" | "SET_ROUND";
+export type { MatchTimerAction };
 
 export interface MatchTimerSnapshot {
   matchId: string;
@@ -25,17 +36,33 @@ export interface SubmitScoreEventResult {
   agreedJudges: number[];
 }
 
-export interface UpdateMatchScoreDto {
-  redScore?: number;
-  blueScore?: number;
-  currentRound?: number;
-  timeRemainingSeconds?: number;
-  timerStatus?: string;
-  status?: string;
-  winner?: "RED" | "BLUE";
-  winReason?: string;
-  event?: ScoreEvent;
-  penalty?: PenaltyRecord;
+export interface SubmitScoreEventDto {
+  corner: Corner;
+  action: ScoringAction;
+  points: number;
+  judgeNumber: number;
+}
+
+export interface DecideScoreEventDto {
+  decision: "VERIFY" | "REJECT";
+}
+
+export interface UpdateTimerDto {
+  action: MatchTimerAction;
+  round?: number;
+}
+
+export interface CreateMatchDto {
+  tournamentId?: string;
+  arenaId: string;
+  categoryId?: string;
+  categoryName?: string;
+  matchNumber: string;
+  stage?: MatchStage;
+  redAthleteId: string;
+  blueAthleteId: string;
+  scheduledDate?: string;
+  scheduledTime?: string;
 }
 
 export interface UpdateMatchScheduleDto {
@@ -43,14 +70,14 @@ export interface UpdateMatchScheduleDto {
   matchNumber: string;
   redAthleteId: string;
   blueAthleteId: string;
-  stage: "PENYISIHAN" | "PEREMPAT_FINAL" | "SEMI_FINAL" | "FINAL" | "PEREBUTAN_JUARA_3";
+  stage: MatchStage;
   scheduledDate: string;
   scheduledTime: string;
 }
 
 export interface UpdateMatchStatusDto {
   matchId: string;
-  status: "SCHEDULED" | "READY" | "LIVE" | "PAUSED" | "FINISHED" | "CANCELLED";
+  status: MatchStatus;
   winnerCorner?: Corner;
   winReason?: MatchWinReason;
 }
@@ -60,11 +87,11 @@ export const matchesApi = {
     return http.get<Match[]>("/api/matches");
   },
 
-  getById: (id: string): Promise<Match> => {
-    return http.get<Match>(`/api/matches/${id}`);
+  create: (data: CreateMatchDto): Promise<unknown> => {
+    return http.post<unknown>("/api/matches", data);
   },
 
-  getTimer: (id: string): Promise<MatchTimerSnapshot> => {
+getTimer: (id: string): Promise<MatchTimerSnapshot> => {
     return http.get<MatchTimerSnapshot>(`/api/matches/${id}/timer`);
   },
 
@@ -73,7 +100,8 @@ export const matchesApi = {
     action: MatchTimerAction,
     round?: number
   ): Promise<MatchTimerSnapshot> => {
-    return http.patch<MatchTimerSnapshot>(`/api/matches/${id}/timer`, { action, round });
+    const body: UpdateTimerDto = { action, round };
+    return http.patch<MatchTimerSnapshot>(`/api/matches/${id}/timer`, body);
   },
 
   getScoringSnapshot: (id: string): Promise<MatchScoringSnapshot> => {
@@ -82,7 +110,7 @@ export const matchesApi = {
 
   submitScoreEvent: (
     id: string,
-    data: { corner: Corner; action: ScoringAction; points: number; judgeNumber: number }
+    data: SubmitScoreEventDto
   ): Promise<SubmitScoreEventResult> => {
     return http.post<SubmitScoreEventResult>(`/api/matches/${id}/score-events`, data);
   },
@@ -90,16 +118,13 @@ export const matchesApi = {
   decideScoreEvent: (
     matchId: string,
     eventId: string,
-    decision: "VERIFY" | "REJECT"
+    decision: DecideScoreEventDto["decision"]
   ): Promise<MatchScoringSnapshot> => {
+    const body: DecideScoreEventDto = { decision };
     return http.patch<MatchScoringSnapshot>(
       `/api/matches/${matchId}/score-events/${eventId}`,
-      { decision }
+      body
     );
-  },
-
-  update: (id: string, data: UpdateMatchScoreDto): Promise<Match> => {
-    return http.patch<Match>(`/api/matches/${id}`, data);
   },
 
   updateSchedule: (id: string, data: UpdateMatchScheduleDto): Promise<{ success: boolean }> => {

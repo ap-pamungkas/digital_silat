@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useScoring, useDashboard, useArenas } from "@/hooks";
 import { Button } from "@/components/ui/Button";
-import { Printer, ArrowLeft, Trophy, Calendar, MapPin } from "lucide-react";
+import { Printer, ArrowLeft, Calendar, MapPin } from "lucide-react";
 
 export default function JadwalPrintPage() {
   const { matches } = useScoring();

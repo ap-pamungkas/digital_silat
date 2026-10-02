@@ -1,70 +1,32 @@
 import { NextResponse } from "next/server";
-import {
-  deleteScheduledMatchAction,
-  MatchScheduleInput,
-  updateMatchScheduleAction,
-} from "@/lib/data-service";
+import { deleteScheduledMatchAction, updateMatchScheduleAction } from "@/lib/data-service";
+import { withRouteHandler, parseBody, actionError } from "@/lib/server/handler";
+import { updateMatchScheduleSchema } from "@/lib/validation";
 
-type RouteContext = { params: Promise<{ matchId: string }> };
+export const PATCH = withRouteHandler<{ matchId: string }, unknown>(async (request, { params }) => {
+  const { matchId } = await params;
+  const body = await parseBody(updateMatchScheduleSchema, request);
 
-const matchStages: MatchScheduleInput["stage"][] = [
-  "PENYISIHAN",
-  "PEREMPAT_FINAL",
-  "SEMI_FINAL",
-  "FINAL",
-  "PEREBUTAN_JUARA_3",
-];
+  const result = await updateMatchScheduleAction(matchId, {
+    arenaId: body.arenaId,
+    matchNumber: body.matchNumber,
+    redAthleteId: body.redAthleteId,
+    blueAthleteId: body.blueAthleteId,
+    stage: body.stage,
+    scheduledDate: body.scheduledDate,
+    scheduledTime: body.scheduledTime,
+  });
 
-export async function PATCH(request: Request, { params }: RouteContext) {
-  try {
-    const body: unknown = await request.json();
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return NextResponse.json({ error: "Data jadwal tidak valid." }, { status: 400 });
-    }
+  if (!result.success) throw actionError(result);
 
-    const data = body as Record<string, unknown>;
-    if (
-      typeof data.arenaId !== "string" ||
-      typeof data.matchNumber !== "string" ||
-      typeof data.redAthleteId !== "string" ||
-      typeof data.blueAthleteId !== "string" ||
-      typeof data.scheduledDate !== "string" ||
-      typeof data.scheduledTime !== "string" ||
-      typeof data.stage !== "string" ||
-      !matchStages.includes(data.stage as MatchScheduleInput["stage"])
-    ) {
-      return NextResponse.json({ error: "Data jadwal belum lengkap." }, { status: 400 });
-    }
+  return { data: { success: true } };
+});
 
-    const { matchId } = await params;
-    const result = await updateMatchScheduleAction(matchId, {
-      arenaId: data.arenaId,
-      matchNumber: data.matchNumber,
-      redAthleteId: data.redAthleteId,
-      blueAthleteId: data.blueAthleteId,
-      stage: data.stage as MatchScheduleInput["stage"],
-      scheduledDate: data.scheduledDate,
-      scheduledTime: data.scheduledTime,
-    });
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    console.error("Failed to update match schedule:", error);
-    return NextResponse.json({ error: "Gagal memperbarui jadwal pertandingan." }, { status: 500 });
-  }
-}
-
-export async function DELETE(_request: Request, { params }: RouteContext) {
+export const DELETE = withRouteHandler<{ matchId: string }, unknown>(async (_request, { params }) => {
   const { matchId } = await params;
   const result = await deleteScheduledMatchAction(matchId);
 
-  if (!result.success) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
-  }
+  if (!result.success) throw actionError(result);
 
   return NextResponse.json({ success: true });
-}
+});

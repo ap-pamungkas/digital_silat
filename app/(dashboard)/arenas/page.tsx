@@ -14,7 +14,6 @@ import {
   Cast,
   Radio,
   ExternalLink,
-  LoaderCircle,
 } from "lucide-react";
 
 export default function ArenasPage() {
@@ -134,10 +133,12 @@ export default function ArenasPage() {
       </div>
 
       {isLoading ? (
-        <div role="status" aria-label="Memuat data gelanggang" className="flex min-h-40 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 dark:border-[#273649] dark:bg-[#0d1c2f] dark:text-[#cbd5e1]">
-          <LoaderCircle className="h-5 w-5 animate-spin text-amber-600 dark:text-[#ffd165]" />
-          Memuat gelanggang
-        </div>
+        <DataTable
+          data={[]}
+          columns={columns}
+          keyExtractor={(arena) => arena.id}
+          isLoading={true}
+        />
       ) : arenas.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-12 text-center bg-white/50 dark:bg-[#0d1c2f]/50">
           <Grid3X3 className="w-12 h-12 text-slate-400 mx-auto mb-3" />

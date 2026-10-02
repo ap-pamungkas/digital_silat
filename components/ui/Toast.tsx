@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Info,
   X,
-  BellRing,
 } from "lucide-react";
 
 export type ToastType = "success" | "warning" | "error" | "info";
@@ -66,28 +65,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [removeToast]);
 
   const toastHelper = React.useMemo(() => {
-    const fn = (opts: ToastOptions) => {
-      return addToast({
+    const base = (opts: ToastOptions) =>
+      addToast({
         type: opts.type || "info",
         title: opts.title,
         description: opts.description,
         duration: opts.duration,
       });
-    };
 
-    fn.success = (title: string, description?: string, duration?: number) =>
-      addToast({ type: "success", title, description, duration });
-
-    fn.error = (title: string, description?: string, duration?: number) =>
-      addToast({ type: "error", title, description, duration });
-
-    fn.warning = (title: string, description?: string, duration?: number) =>
-      addToast({ type: "warning", title, description, duration });
-
-    fn.info = (title: string, description?: string, duration?: number) =>
-      addToast({ type: "info", title, description, duration });
-
-    return fn;
+    return Object.assign(base, {
+      success: (title: string, description?: string, duration?: number) =>
+        addToast({ type: "success", title, description, duration }),
+      error: (title: string, description?: string, duration?: number) =>
+        addToast({ type: "error", title, description, duration }),
+      warning: (title: string, description?: string, duration?: number) =>
+        addToast({ type: "warning", title, description, duration }),
+      info: (title: string, description?: string, duration?: number) =>
+        addToast({ type: "info", title, description, duration }),
+    });
   }, [addToast]);
 
   const toastConfigs: Record<

@@ -30,7 +30,7 @@ async function main() {
     },
   });
 
-  const operatorUser = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: "operator1@pagar.id",
       name: "Operator Gelanggang 1",

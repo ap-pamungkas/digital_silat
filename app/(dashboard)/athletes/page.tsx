@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable, Column } from "@/components/dashboard/DataTable";
-import { Users, Plus, Search, LoaderCircle, Pencil, Trash2 } from "lucide-react";
+import { Users, Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Athlete } from "@/lib/types";
 
@@ -236,14 +236,12 @@ export default function AthletesPage() {
       </div>
 
       {isLoading ? (
-        <div
-          role="status"
-          aria-label="Memuat data atlet"
-          className="flex min-h-48 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 dark:border-[#273649] dark:bg-[#0d1c2f] dark:text-[#cbd5e1]"
-        >
-          <LoaderCircle className="h-5 w-5 animate-spin text-amber-600 dark:text-[#ffd165]" />
-          Memuat atlet
-        </div>
+        <DataTable
+          data={[]}
+          columns={columns}
+          keyExtractor={(athlete) => athlete.id}
+          isLoading={true}
+        />
       ) : filteredAthletes.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-12 text-center bg-white/50 dark:bg-[#0d1c2f]/50">
           <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />

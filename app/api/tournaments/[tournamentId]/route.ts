@@ -1,28 +1,43 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import {
+  deleteTournamentAction,
+  updateTournamentAction,
+} from "@/lib/data-service";
+import { withRouteHandler, parseBody, actionError } from "@/lib/server/handler";
+import { updateTournamentSchema } from "@/lib/validation";
 
-type RouteContext = { params: Promise<{ tournamentId: string }> };
-
-export async function DELETE(
-  _request: Request,
-  { params }: RouteContext
-) {
-  try {
+export const PATCH = withRouteHandler<{ tournamentId: string }, unknown>(
+  async (request, { params }) => {
     const { tournamentId } = await params;
-    const result = await prisma.tournament.deleteMany({
-      where: { code: tournamentId },
+    const body = await parseBody(updateTournamentSchema, request);
+
+    const result = await updateTournamentAction(tournamentId, {
+      name: body.name,
+      location: body.location,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      status: body.status,
     });
 
-    if (result.count === 0) {
-      return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
+    if (!result.success) throw actionError(result);
+
+    return { data: result.data };
+  }
+);
+
+export const DELETE = withRouteHandler<{ tournamentId: string }, unknown>(
+  async (_request, { params }) => {
+    const { tournamentId } = await params;
+    const result = await deleteTournamentAction(tournamentId);
+
+    if (!result.success) {
+      if (result.status >= 500) {
+        console.error(`[api] DELETE tournament ${tournamentId} gagal`);
+        return NextResponse.json({ error: result.error }, { status: result.status });
+      }
+      throw actionError(result);
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    console.error("Error deleting tournament:", error);
-    return NextResponse.json(
-      { error: "Failed to delete tournament." },
-      { status: 500 }
-    );
   }
-}
+);

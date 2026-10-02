@@ -1,53 +1,30 @@
 import { NextResponse } from "next/server";
 import { deleteAthleteAction, updateAthleteAction } from "@/lib/data-service";
+import { withRouteHandler, parseBody, actionError } from "@/lib/server/handler";
+import { updateAthleteSchema } from "@/lib/validation";
 
-type RouteContext = { params: Promise<{ id: string }> };
+export const PATCH = withRouteHandler<{ id: string }, unknown>(async (request, { params }) => {
+  const { id } = await params;
+  const data = await parseBody(updateAthleteSchema, request);
 
-export async function PATCH(request: Request, { params }: RouteContext) {
-  try {
-    const body: unknown = await request.json();
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return NextResponse.json({ error: "Data atlet tidak valid." }, { status: 400 });
-    }
+  const result = await updateAthleteAction(id, {
+    name: data.name,
+    contingentName: data.contingent,
+    contingentCode: data.contingentCode,
+    gender: data.gender,
+    weightClassName: data.weightClass,
+  });
 
-    const data = body as Record<string, unknown>;
-    if (
-      typeof data.name !== "string" ||
-      typeof data.contingent !== "string" ||
-      typeof data.weightClass !== "string" ||
-      (data.gender !== "PUTRA" && data.gender !== "PUTRI") ||
-      (data.contingentCode !== undefined && typeof data.contingentCode !== "string")
-    ) {
-      return NextResponse.json({ error: "Data atlet tidak lengkap." }, { status: 400 });
-    }
+  if (!result.success) throw actionError(result);
 
-    const { id } = await params;
-    const result = await updateAthleteAction(id, {
-      name: data.name,
-      contingentName: data.contingent,
-      contingentCode: data.contingentCode,
-      gender: data.gender,
-      weightClassName: data.weightClass,
-    });
+  return { data: result.data };
+});
 
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
-    }
-
-    return NextResponse.json(result.data);
-  } catch (error: unknown) {
-    console.error("Failed to update athlete:", error);
-    return NextResponse.json({ error: "Gagal memperbarui data atlet." }, { status: 500 });
-  }
-}
-
-export async function DELETE(_request: Request, { params }: RouteContext) {
+export const DELETE = withRouteHandler<{ id: string }, unknown>(async (_request, { params }) => {
   const { id } = await params;
   const result = await deleteAthleteAction(id);
 
-  if (!result.success) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
-  }
+  if (!result.success) throw actionError(result);
 
   return NextResponse.json({ success: true });
-}
+});

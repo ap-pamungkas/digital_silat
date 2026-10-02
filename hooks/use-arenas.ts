@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/lib/api";
+import { apiClient } from "@/lib/api/client";
 import { Arena } from "@/lib/types";
 
 export function useArenas() {
@@ -27,7 +27,7 @@ export function useArenas() {
   }, []);
 
   useEffect(() => {
-    fetchArenas();
+    void Promise.resolve().then(fetchArenas);
   }, [fetchArenas]);
 
   return {

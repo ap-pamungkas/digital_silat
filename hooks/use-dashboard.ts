@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/lib/api";
+import { apiClient } from "@/lib/api/client";
 import { Tournament, Arena, Match, DEFAULT_TOURNAMENT } from "@/lib/types";
 import { DashboardResponse } from "@/lib/api/dashboard";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { apiClient, CreateJudgeDto, UpdateJudgeDto } from "@/lib/api";
+import { apiClient, CreateJudgeDto, UpdateJudgeDto } from "@/lib/api/client";
 import { Judge } from "@/lib/types";
 
 export function useJudges(initialArenaId = "") {

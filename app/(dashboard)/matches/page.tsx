@@ -12,27 +12,10 @@ import { Tabs } from "@/components/ui/Tabs";
 import { DataTable, Column } from "@/components/dashboard/DataTable";
 import { Swords, Search, Radio, Plus, Printer, Pencil, Trash2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Match } from "@/lib/types";
+import { MATCH_STAGES, MATCH_STAGE_LABELS, Match, MatchStage } from "@/lib/types";
+import { toMatchStage } from "@/lib/scoring/rules";
 
-type MatchStage = "PENYISIHAN" | "PEREMPAT_FINAL" | "SEMI_FINAL" | "FINAL" | "PEREBUTAN_JUARA_3";
 
-const matchStages: MatchStage[] = [
-  "PENYISIHAN",
-  "PEREMPAT_FINAL",
-  "SEMI_FINAL",
-  "FINAL",
-  "PEREBUTAN_JUARA_3",
-];
-
-function getMatchStage(stage: string): MatchStage {
-  const normalized = stage
-    .replace(/^BABAK\s+/i, "")
-    .trim()
-    .replace(/\s+/g, "_")
-    .toUpperCase() as MatchStage;
-
-  return matchStages.includes(normalized) ? normalized : "PENYISIHAN";
-}
 
 function getScheduledTimeValue(value: string): string {
   return value.match(/\b\d{2}:\d{2}\b/)?.[0] ?? "10:00";
@@ -53,7 +36,7 @@ function formatMatchDate(value?: string): string {
 
 export default function MatchesPage() {
   const { toast } = useToast();
-  const { matches, refreshMatches } = useScoring();
+  const { matches, refreshMatches, isLoading } = useScoring();
   const { athletes } = useAthletes();
   const { arenas } = useArenas();
 
@@ -109,7 +92,7 @@ export default function MatchesPage() {
     setEditingMatch(match);
     setMatchNumber(match.matchNumber.replace(/^MATCH\s*#?\s*/i, ""));
     setArenaId(match.arenaId);
-    setStage(getMatchStage(match.stage));
+    setStage(toMatchStage(match.stage));
     setRedAthleteId(match.redAthlete.id);
     setBlueAthleteId(match.blueAthlete.id);
     setScheduledDate(match.scheduledDate ?? getLocalDateValue());
@@ -324,7 +307,7 @@ export default function MatchesPage() {
   const statusTabs = [
     { id: "ALL", label: "Semua", count: counts.all },
     { id: "LIVE", label: "Live", count: counts.live },
-    { id: "UPCOMING", label: "Antrean", count: counts.upcoming },
+    { id: "SCHEDULED", label: "Antrean", count: counts.upcoming },
     { id: "FINISHED", label: "Selesai", count: counts.finished },
   ];
 
@@ -416,7 +399,14 @@ export default function MatchesPage() {
         </div>
       </div>
 
-      {filteredMatches.length === 0 ? (
+      {isLoading ? (
+        <DataTable
+          data={[]}
+          columns={columns}
+          keyExtractor={(match) => match.id}
+          isLoading={true}
+        />
+      ) : filteredMatches.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-12 text-center bg-white/50 dark:bg-[#0d1c2f]/50">
           <Swords className="w-12 h-12 text-slate-400 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-900 dark:text-white">Belum Ada Partai Pertandingan</h3>
@@ -484,13 +474,10 @@ export default function MatchesPage() {
               label="Babak Pertandingan"
               value={stage}
               onChange={(e) => setStage(e.target.value as typeof stage)}
-              options={[
-                { value: "PENYISIHAN", label: "Babak Penyisihan" },
-                { value: "PEREMPAT_FINAL", label: "Perempat Final" },
-                { value: "SEMI_FINAL", label: "Semi Final" },
-                { value: "FINAL", label: "Babak Final" },
-                { value: "PEREBUTAN_JUARA_3", label: "Perebutan Juara 3" },
-              ]}
+              options={MATCH_STAGES.map((value) => ({
+                value,
+                label: MATCH_STAGE_LABELS[value],
+              }))}
             />
           </div>
 

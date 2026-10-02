@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ConnectionStatus, Judge } from "@/lib/types";
+import { ActionResult, ActionResultVoid, isPrismaUniqueConstraintError } from "./shared";
 
 export async function getJudges(): Promise<Judge[]> {
   try {
@@ -33,7 +34,7 @@ export async function getJudges(): Promise<Judge[]> {
       name: judge.name,
       licenseNumber: judge.licenseNumber ?? undefined,
       arenaId: judge.arena.arenaCode,
-      status: judge.status as "ONLINE" | "SYNCING" | "RECONNECTING" | "OFFLINE",
+      status: judge.status,
       batteryLevel: judge.batteryLevel ?? undefined,
       pingMs: judge.pingMs ?? undefined,
       lastActive: judge.lastActiveAt.toLocaleString("id-ID", {
@@ -53,7 +54,7 @@ export async function createJudgeAction(data: {
   judgeNumber: number;
   name: string;
   licenseNumber?: string;
-}) {
+}): Promise<ActionResult<Judge>> {
   try {
     if (!Number.isInteger(data.judgeNumber) || data.judgeNumber < 1 || data.judgeNumber > 5) {
       throw new Error("Nomor juri harus antara 1 sampai 5.");
@@ -94,7 +95,7 @@ export async function createJudgeAction(data: {
     });
 
     return {
-      success: true as const,
+      success: true,
       data: {
         id: judge.id,
         judgeNumber: judge.judgeNumber,
@@ -109,17 +110,17 @@ export async function createJudgeAction(data: {
       } satisfies Judge,
     };
   } catch (error: unknown) {
-    const isDuplicate = typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
     return {
-      success: false as const,
-      error: isDuplicate
+      success: false,
+      status: 400,
+      error: isPrismaUniqueConstraintError(error)
         ? "Nomor juri tersebut sudah terdaftar pada gelanggang ini."
         : error instanceof Error ? error.message : "Gagal mendaftarkan juri.",
     };
   }
 }
 
-export async function updateJudgeAction(id: string, data: { name?: string; licenseNumber?: string; status?: ConnectionStatus; pingMs?: number; batteryLevel?: number }) {
+export async function updateJudgeAction(id: string, data: { name?: string; licenseNumber?: string; status?: ConnectionStatus; pingMs?: number; batteryLevel?: number }): Promise<ActionResult<Judge>> {
   try {
     const judge = await prisma.judge.update({
       where: { id },
@@ -150,7 +151,7 @@ export async function updateJudgeAction(id: string, data: { name?: string; licen
     if (!arena) throw new Error("Gelanggang juri tidak ditemukan.");
 
     return {
-      success: true as const,
+      success: true,
       data: {
         id: judge.id,
         judgeNumber: judge.judgeNumber,
@@ -166,19 +167,21 @@ export async function updateJudgeAction(id: string, data: { name?: string; licen
     };
   } catch (error: unknown) {
     return {
-      success: false as const,
+      success: false,
+      status: 400,
       error: error instanceof Error ? error.message : "Gagal mengupdate juri.",
     };
   }
 }
 
-export async function deleteJudgeAction(id: string) {
+export async function deleteJudgeAction(id: string): Promise<ActionResultVoid> {
   try {
     await prisma.judge.delete({ where: { id } });
-    return { success: true as const };
+    return { success: true };
   } catch (error: unknown) {
     return {
-      success: false as const,
+      success: false,
+      status: 400,
       error: error instanceof Error ? error.message : "Gagal menghapus juri.",
     };
   }

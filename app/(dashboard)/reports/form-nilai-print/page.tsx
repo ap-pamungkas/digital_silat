@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useScoring, useDashboard } from "@/hooks";
 import { Button } from "@/components/ui/Button";
-import { Printer, ArrowLeft, Shield } from "lucide-react";
+import { Printer, ArrowLeft } from "lucide-react";
 
 export default function FormNilaiPrintPage() {
   const { matches } = useScoring();

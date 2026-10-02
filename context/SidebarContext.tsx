@@ -20,15 +20,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
-    setIsMounted(true);
-    try {
-      const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-      if (saved !== null) {
-        setIsCollapsed(saved === "true");
+    void Promise.resolve().then(() => {
+      setIsMounted(true);
+      try {
+        const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+        if (saved !== null) {
+          setIsCollapsed(saved === "true");
+        }
+      } catch {
+        // ignore storage errors
       }
-    } catch {
-      // ignore storage errors
-    }
+    });
   }, []);
 
   const toggleCollapse = React.useCallback(() => {

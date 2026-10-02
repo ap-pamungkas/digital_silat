@@ -1,38 +1,24 @@
 import { NextResponse } from "next/server";
 import { getAthletes, createAthleteAction } from "@/lib/data-service";
+import { withRouteHandler, parseBody, actionError } from "@/lib/server/handler";
+import { createAthleteSchema } from "@/lib/validation";
 
-export async function GET() {
-  try {
-    const athletes = await getAthletes();
-    return NextResponse.json(athletes);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Failed to fetch athletes" },
-      { status: 500 }
-    );
-  }
-}
+export const GET = withRouteHandler(async () => {
+  return { data: await getAthletes() };
+});
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const result = await createAthleteAction({
-      name: body.name,
-      contingentName: body.contingent,
-      contingentCode: body.contingentCode,
-      gender: body.gender,
-      weightClassName: body.weightClass,
-    });
+export const POST = withRouteHandler(async (request) => {
+  const body = await parseBody(createAthleteSchema, request);
 
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
+  const result = await createAthleteAction({
+    name: body.name,
+    contingentName: body.contingent,
+    contingentCode: body.contingentCode,
+    gender: body.gender,
+    weightClassName: body.weightClass,
+  });
 
-    return NextResponse.json(result.data, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Failed to create athlete" },
-      { status: 500 }
-    );
-  }
-}
+  if (!result.success) throw actionError(result);
+
+  return NextResponse.json(result.data, { status: 201 });
+});

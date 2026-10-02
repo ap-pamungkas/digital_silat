@@ -11,6 +11,7 @@ This file defines how an AI agent must inspect, modify, implement, test, and doc
 # 1. READ FIRST
 Before making any changes, the agent MUST read:
 ```text
+.agents
 AGENTS.md
 DESIGN.md
 PRISMA.md

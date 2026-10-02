@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -78,6 +79,28 @@ export function StatCard({
             <span className="text-slate-400 dark:text-[#94a3b8]">vs sesi sebelumnya</span>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+export function StatCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      role="status"
+      aria-label="Memuat statistik..."
+      className={cn(
+        "bg-white dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#273649] rounded-xl p-5 shadow-xs relative overflow-hidden",
+        className
+      )}
+    >
+      <div className="flex justify-between items-start mb-4">
+        <Skeleton className="h-10 w-10 rounded-lg" />
+      </div>
+      <div>
+        <Skeleton className="h-3 w-28 mb-2" />
+        <Skeleton className="h-8 w-16 mb-2" />
+        <Skeleton className="h-2.5 w-32" />
       </div>
     </div>
   );

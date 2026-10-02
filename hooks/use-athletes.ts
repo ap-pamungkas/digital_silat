@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { apiClient, CreateAthleteDto } from "@/lib/api";
+import { apiClient, CreateAthleteDto } from "@/lib/api/client";
 import { Athlete } from "@/lib/types";
 
 export function useAthletes() {
@@ -29,7 +29,7 @@ export function useAthletes() {
   }, []);
 
   useEffect(() => {
-    fetchAthletes();
+    void Promise.resolve().then(fetchAthletes);
   }, [fetchAthletes]);
 
   const filteredAthletes = useMemo(() => {

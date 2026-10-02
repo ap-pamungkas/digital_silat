@@ -4,16 +4,10 @@ import * as React from "react";
 import { Button } from "@/components/ui/Button";
 import { KeyRound, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks";
-import { http } from "@/lib/api/http";
+import { apiClient, JudgeSessionAccess } from "@/lib/api/client";
 
 interface JudgeSessionManagerProps {
   matchId: string;
-}
-
-interface JudgeSessionAccess {
-  judgeNumber: number;
-  judgeName: string;
-  accessCode: string;
 }
 
 export function JudgeSessionManager({ matchId }: JudgeSessionManagerProps) {
@@ -24,7 +18,8 @@ export function JudgeSessionManager({ matchId }: JudgeSessionManagerProps) {
 
   React.useEffect(() => {
     let isCurrent = true;
-    http.get<JudgeSessionAccess[]>(`/api/matches/${matchId}/judge-sessions`)
+    apiClient.judgeSessions
+      .listByMatch(matchId)
       .then((existingSessions) => {
         if (isCurrent) setSessions(existingSessions);
       })
@@ -40,9 +35,7 @@ export function JudgeSessionManager({ matchId }: JudgeSessionManagerProps) {
   const generateCode = async () => {
     setIsGenerating(true);
     try {
-      const generatedSessions = await http.post<JudgeSessionAccess[]>(
-        `/api/matches/${matchId}/judge-sessions`
-      );
+      const generatedSessions = await apiClient.judgeSessions.regenerate(matchId);
       setSessions(generatedSessions);
       toast.success("Kode Dibuat", `Kode akses untuk ${generatedSessions.length} juri telah diperbarui.`);
     } catch (error) {

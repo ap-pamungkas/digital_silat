@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
 import { DataTable, Column } from "@/components/dashboard/DataTable";
-import { Trophy, Plus, Search, Calendar, MapPin, LoaderCircle } from "lucide-react";
+import { Trophy, Plus, Search, Calendar, MapPin } from "lucide-react";
 
 export default function TournamentsPage() {
   const { toast } = useToast();
@@ -206,22 +206,12 @@ export default function TournamentsPage() {
         />
       </div>
 
-      {isLoading ? (
-        <div
-          role="status"
-          aria-label="Memuat turnamen"
-          className="flex min-h-48 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 dark:border-[#273649] dark:bg-[#0d1c2f] dark:text-[#cbd5e1]"
-        >
-          <LoaderCircle className="h-5 w-5 animate-spin text-amber-600 dark:text-[#ffd165]" />
-          Memuat turnamen
-        </div>
-      ) : (
-        <DataTable
-          data={filteredTournaments}
-          columns={columns}
-          keyExtractor={(item) => item.id}
-        />
-      )}
+      <DataTable
+        data={filteredTournaments}
+        columns={columns}
+        keyExtractor={(item) => item.id}
+        isLoading={isLoading}
+      />
 
       <Dialog
         isOpen={isCreateOpen}

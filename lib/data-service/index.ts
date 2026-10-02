@@ -4,3 +4,4 @@ export * from "./dashboard";
 export * from "./judges";
 export * from "./matches";
 export * from "./scoring";
+export * from "./tournaments";

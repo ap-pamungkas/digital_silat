@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Judge } from "@/lib/types";
 import { JudgeStatus } from "./JudgeStatus";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Battery, Tablet, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +75,36 @@ export function JudgeCard({ judge, className, onEdit, onDelete }: JudgeCardProps
           <Clock className="w-3.5 h-3.5 shrink-0" />
           <span>Aktivitas terakhir: {judge.lastActive}</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function JudgeCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      role="status"
+      aria-label="Memuat data juri..."
+      className={cn(
+        "p-4 rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] shadow-xs",
+        className
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Skeleton className="w-9 h-9 rounded-lg shrink-0" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 pt-3 mt-3 border-t border-slate-100 dark:border-[#273649]">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-12 ml-auto" />
+        <Skeleton className="h-3 w-36 col-span-2" />
       </div>
     </div>
   );

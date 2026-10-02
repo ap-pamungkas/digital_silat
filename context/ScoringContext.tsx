@@ -17,7 +17,7 @@ import {
   MatchWinReason,
   DEFAULT_MATCH,
 } from "@/lib/types";
-import { apiClient } from "@/lib/api";
+import { apiClient } from "@/lib/api/client";
 import {
   MatchScoringSnapshot,
   MatchTimerAction,
@@ -60,6 +60,7 @@ export interface ScoringContextType {
   setActiveMatchId: (matchId: string) => void;
   lastFeedback: LastFeedbackState | null;
   refreshMatches: () => Promise<void>;
+  isLoading: boolean;
   consensusWindowMs: number;
   minJudgesRequired: number;
 }
@@ -80,6 +81,7 @@ interface BroadcastMessage {
 
 export function ScoringProvider({ children }: { children: React.ReactNode }) {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeMatchId, setActiveMatchId] = useState<string>("");
   const [currentJudgeNumber, setCurrentJudgeNumber] = useState<number>(1);
   const [lastFeedback, setLastFeedback] = useState<LastFeedbackState | null>(null);
@@ -154,6 +156,10 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.warn("Initial load error:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     load();
@@ -432,6 +438,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         setActiveMatchId,
         lastFeedback,
         refreshMatches,
+        isLoading,
         consensusWindowMs: CONSENSUS_WINDOW_MS,
         minJudgesRequired: MIN_JUDGES_REQUIRED,
       }}

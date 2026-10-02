@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useScoring, useToast, useJudges } from "@/hooks";
 import { ScoreButton } from "@/components/scoring/ScoreButton";
 import { MatchTimer } from "@/components/scoring/MatchTimer";
@@ -26,11 +26,9 @@ import { cn } from "@/lib/utils";
 
 function JudgeScoringContent() {
   const params = useParams();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const matchId = typeof params?.matchId === "string" ? params.matchId : "";
   const urlJuri = searchParams.get("juri");
-  const requestedJudgeNumber = urlJuri && /^[1-5]$/.test(urlJuri) ? Number(urlJuri) : null;
 
   const { toast } = useToast();
 
@@ -49,51 +47,16 @@ function JudgeScoringContent() {
   const [isPenaltyOpen, setIsPenaltyOpen] = React.useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = React.useState(false);
   const [expiredFeedbackTimestamp, setExpiredFeedbackTimestamp] = React.useState<number | null>(null);
-  const [verifiedSessionKey, setVerifiedSessionKey] = React.useState<string | null>(null);
-  const [isVerifyingAccess, setIsVerifyingAccess] = React.useState(true);
-  const requestedSessionKey = `${matchId}:${requestedJudgeNumber}`;
-  const isAccessVerified = verifiedSessionKey === requestedSessionKey;
-
-  React.useEffect(() => {
-    if (!matchId || !requestedJudgeNumber) {
-      router.replace("/judge");
-      return;
-    }
-
-    const verifySession = async () => {
-      setIsVerifyingAccess(true);
-      const storageKey = `judge-access:${matchId}:${requestedJudgeNumber}`;
-      const accessCode = sessionStorage.getItem(storageKey);
-      if (!accessCode) {
-        router.replace("/judge");
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/judge-sessions/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ matchId, judgeNumber: requestedJudgeNumber, accessCode }),
-        });
-        if (!response.ok) throw new Error("Sesi juri tidak valid.");
-        setVerifiedSessionKey(requestedSessionKey);
-      } catch {
-        sessionStorage.removeItem(storageKey);
-        router.replace("/judge");
-      } finally {
-        setIsVerifyingAccess(false);
-      }
-    };
-
-    void verifySession();
-  }, [matchId, requestedJudgeNumber, requestedSessionKey, router]);
 
   // Sync judge number from URL query if provided (e.g. ?juri=2)
   React.useEffect(() => {
-    if (requestedJudgeNumber && requestedJudgeNumber !== currentJudgeNumber) {
-      setCurrentJudgeNumber(requestedJudgeNumber);
+    if (urlJuri) {
+      const parsed = parseInt(urlJuri, 10);
+      if (parsed >= 1 && parsed <= 5 && parsed !== currentJudgeNumber) {
+        setCurrentJudgeNumber(parsed);
+      }
     }
-  }, [requestedJudgeNumber, currentJudgeNumber, setCurrentJudgeNumber]);
+  }, [urlJuri, currentJudgeNumber, setCurrentJudgeNumber]);
 
   React.useEffect(() => {
     if (matchId && matchId !== activeMatch.id) {
@@ -162,24 +125,9 @@ function JudgeScoringContent() {
   const hasRecentFeedback = lastFeedback && expiredFeedbackTimestamp !== lastFeedback.timestamp;
 
   if (!match) {
-    if (isVerifyingAccess || isAccessVerified) {
-      return (
-        <div className="rounded-xl border border-slate-200 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
-          Memverifikasi akses juri...
-        </div>
-      );
-    }
     return (
       <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
         Pertandingan tidak ditemukan di database.
-      </div>
-    );
-  }
-
-  if (isVerifyingAccess || !isAccessVerified) {
-    return (
-      <div className="rounded-xl border border-slate-200 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
-        Memverifikasi akses juri...
       </div>
     );
   }
@@ -217,7 +165,7 @@ function JudgeScoringContent() {
               <button
                 key={num}
                 type="button"
-                onClick={() => router.replace(`/judge/scoring/${matchId}?juri=${num}`)}
+                onClick={() => setCurrentJudgeNumber(num)}
                 className={cn(
                   "px-2 py-1 text-xs font-bold rounded-md transition-all",
                   currentJudgeNumber === num

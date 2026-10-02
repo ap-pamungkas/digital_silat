@@ -1,5 +1,5 @@
 import { http } from "./http";
-import { Tournament } from "@/lib/types";
+import { Tournament, TournamentStatus } from "@/lib/types";
 
 export interface CreateTournamentDto {
   name: string;
@@ -9,8 +9,12 @@ export interface CreateTournamentDto {
   totalArenas?: string | number;
 }
 
-export interface UpdateTournamentDto extends Partial<CreateTournamentDto> {
-  status?: "ONGOING" | "UPCOMING" | "COMPLETED";
+export interface UpdateTournamentDto {
+  name?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: TournamentStatus;
 }
 
 export const tournamentsApi = {

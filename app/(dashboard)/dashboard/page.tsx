@@ -3,7 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useDashboard } from "@/hooks";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { StatCard, StatCardSkeleton } from "@/components/dashboard/StatCard";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { TableSkeleton } from "@/components/dashboard/TableSkeleton";
 import {
   MapPin,
   Calendar,
@@ -27,8 +29,114 @@ import {
   Plus,
 } from "lucide-react";
 
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8 pb-10" role="status" aria-label="Memuat ringkasan dashboard...">
+      {/* 1. Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-[#d5e3fd] tracking-tight">
+            Dashboard
+          </h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-40 rounded-lg" />
+          <Skeleton className="h-9 w-36 rounded-lg" />
+        </div>
+      </div>
+
+      {/* 2. Tournament Banner Skeleton */}
+      <div className="rounded-xl bg-white dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#273649] p-6 shadow-xs">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start md:items-center justify-between w-full">
+          <div className="flex flex-wrap items-center gap-6 sm:gap-10">
+            <div className="flex items-center gap-4">
+              <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+              <div className="space-y-2">
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="h-5 w-36" />
+              </div>
+            </div>
+            <div className="hidden md:block w-px h-10 bg-slate-200 dark:bg-[#273649]" />
+            <div className="flex items-center gap-4">
+              <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+              <div className="space-y-2">
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="h-5 w-44" />
+              </div>
+            </div>
+          </div>
+          <Skeleton className="h-8 w-28 rounded-full" />
+        </div>
+      </div>
+
+      {/* 3. Stat Cards Bento Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+      </div>
+
+      {/* 4. Split Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT: 8 Cols */}
+        <div className="lg:col-span-8 bg-white dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#273649] rounded-xl flex flex-col shadow-xs overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#273649] flex justify-between items-center bg-slate-50/80 dark:bg-[#273649]/30">
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="w-4 h-4 rounded" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <TableSkeleton
+            columns={["PARTAI", "GELANGGANG", "KELAS", "SUDUT MERAH", "SUDUT BIRU", "WAKTU", "STATUS"]}
+            rows={5}
+            className="border-0 rounded-none shadow-none"
+          />
+        </div>
+
+        {/* RIGHT: 4 Cols */}
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Skeleton className="w-4 h-4 rounded" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-3 w-24" />
+          </div>
+
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#273649] rounded-xl p-4 shadow-xs space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-12 rounded" />
+                  </div>
+                  <Skeleton className="h-4 w-16 rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-4/5" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardOverviewPage() {
-  const { tournament, stats, matches, arenas, activeMatch, auditLogs } = useDashboard();
+  const { tournament, stats, matches, arenas, activeMatch, auditLogs, isLoading } = useDashboard();
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   const todayMatches = matches.slice(0, 5);
 

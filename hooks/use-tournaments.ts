@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { apiClient, CreateTournamentDto } from "@/lib/api";
+import { apiClient, CreateTournamentDto } from "@/lib/api/client";
 import { Tournament } from "@/lib/types";
 
 export function useTournaments() {
@@ -28,7 +28,7 @@ export function useTournaments() {
   }, []);
 
   useEffect(() => {
-    fetchTournaments();
+    void Promise.resolve().then(fetchTournaments);
   }, [fetchTournaments]);
 
   const filteredTournaments = useMemo(() => {

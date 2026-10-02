@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Judge } from "@/lib/types";
-import { useArenas, useJudges } from "@/hooks";
+import { useArenas, useJudges, useToast } from "@/hooks";
 import { JudgeStatus } from "@/components/judge/JudgeStatus";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -11,8 +11,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Tabs } from "@/components/ui/Tabs";
-import { useToast } from "@/hooks";
-import { UserCheck, ShieldCheck, Plus, Pencil, Trash2, LoaderCircle } from "lucide-react";
+import { UserCheck, ShieldCheck, Plus, Pencil, Trash2 } from "lucide-react";
 
 export default function JudgesPage() {
   const { arenas } = useArenas();
@@ -216,10 +215,12 @@ export default function JudgesPage() {
       />
 
       {isLoading ? (
-        <div role="status" aria-label="Memuat data juri" className="flex min-h-40 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 dark:border-[#273649] dark:bg-[#0d1c2f] dark:text-[#cbd5e1]">
-          <LoaderCircle className="h-5 w-5 animate-spin text-amber-600 dark:text-[#ffd165]" />
-          Memuat juri
-        </div>
+        <DataTable
+          data={[]}
+          columns={columns}
+          keyExtractor={(judge) => judge.id}
+          isLoading={true}
+        />
       ) : arenas.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-8 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
           Belum ada data gelanggang di database.

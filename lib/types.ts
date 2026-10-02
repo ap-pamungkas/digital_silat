@@ -1,34 +1,63 @@
-export type Corner = "RED" | "BLUE";
+import {
+  ArenaStatus as PrismaArenaStatus,
+  ConnectionStatus as PrismaConnectionStatus,
+  Corner as PrismaCorner,
+  Gender as PrismaGender,
+  MatchStage as PrismaMatchStage,
+  MatchStatus as PrismaMatchStatus,
+  PenaltyType as PrismaPenaltyType,
+  ScoreEventStatus as PrismaScoreEventStatus,
+  ScoringAction as PrismaScoringAction,
+  TimerStatus as PrismaTimerStatus,
+  TournamentStatus as PrismaTournamentStatus,
+  WinReason as PrismaWinReason,
+} from "@/lib/generated/prisma/enums";
 
-export type MatchStatus = "UPCOMING" | "SCHEDULED" | "READY" | "LIVE" | "PAUSED" | "FINISHED" | "CANCELLED";
+export type Corner = `${PrismaCorner}`;
+export type Gender = `${PrismaGender}`;
+export type MatchStatus = `${PrismaMatchStatus}`;
+export type TournamentStatus = `${PrismaTournamentStatus}`;
+export type TimerStatus = `${PrismaTimerStatus}`;
+export type ConnectionStatus = `${PrismaConnectionStatus}`;
+export type ScoringAction = `${PrismaScoringAction}`;
+export type MatchStage = `${PrismaMatchStage}`;
+export type PenaltyType = `${PrismaPenaltyType}`;
+export type ScoreEventStatus = `${PrismaScoreEventStatus}`;
+export type ArenaStatus = `${PrismaArenaStatus}`;
+export type MatchWinReason = `${PrismaWinReason}`;
 
-export type MatchWinReason =
-  | "MENANG_ANGKA"
-  | "MENANG_MUTLAK"
-  | "MENANG_TEKNIK"
-  | "MENANG_DISKUALIFIKASI"
-  | "MENANG_W_O"
-  | "MENANG_UNDUR_DIRI";
+export const MATCH_STATUSES: readonly MatchStatus[] = Object.values(PrismaMatchStatus);
+export const MATCH_STAGES: readonly MatchStage[] = Object.values(PrismaMatchStage);
+export const TOURNAMENT_STATUSES: readonly TournamentStatus[] = Object.values(PrismaTournamentStatus);
+export const SCORE_EVENT_STATUSES: readonly ScoreEventStatus[] = Object.values(PrismaScoreEventStatus);
+export const PENALTY_TYPES: readonly PenaltyType[] = Object.values(PrismaPenaltyType);
+export const SCORING_ACTIONS: readonly ScoringAction[] = Object.values(PrismaScoringAction);
+export const CORNERS: readonly Corner[] = Object.values(PrismaCorner);
 
-export type TimerStatus = "READY" | "RUNNING" | "PAUSED" | "WARNING" | "FINISHED";
+export const MATCH_STAGE_LABELS: Record<MatchStage, string> = {
+  PENYISIHAN: "Babak Penyisihan",
+  PEREMPAT_FINAL: "Perempat Final",
+  SEMI_FINAL: "Semi Final",
+  FINAL: "Babak Final",
+  PEREBUTAN_JUARA_3: "Perebutan Juara 3",
+};
 
-export type ConnectionStatus = "ONLINE" | "SYNCING" | "RECONNECTING" | "OFFLINE";
+export type MatchTimerAction = "START" | "PAUSE" | "RESET" | "NEXT_ROUND" | "SET_ROUND";
 
-export type ScoringAction = "PUKULAN" | "TENDANGAN" | "JATUHAN" | "TANGKISAN_PUKULAN" | "TANGKISAN_TENDANGAN" | "HUKUMAN";
-
-export type PenaltyType = 
-  | "TEGURAN_1" // -1
-  | "TEGURAN_2" // -2
-  | "PERINGATAN_1" // -5
-  | "PERINGATAN_2" // -10
-  | "DISKUALIFIKASI";
+export const MATCH_TIMER_ACTIONS: readonly MatchTimerAction[] = [
+  "START",
+  "PAUSE",
+  "RESET",
+  "NEXT_ROUND",
+  "SET_ROUND",
+];
 
 export interface Athlete {
   id: string;
   name: string;
   contingent: string; // e.g., "JAWA TENGAH", "JAWA BARAT"
   contingentCode?: string; // e.g., "JTG", "JBR"
-  gender: "PUTRA" | "PUTRI";
+  gender: Gender;
   weightClass: string; // e.g., "KELAS A (45-50 kg)"
   avatarUrl?: string;
   seed?: number;
@@ -59,7 +88,7 @@ export interface ScoreEvent {
   matchTime: string; // e.g., "01:25"
   timestamp: number;
   verified: boolean;
-  status: "VERIFIED" | "PENDING" | "REJECTED";
+  status: ScoreEventStatus;
   judgesAgreed?: number[];
 }
 
@@ -106,7 +135,7 @@ export interface Arena {
   id: string; // e.g., "ARENA_1"
   name: string; // e.g., "GELANGGANG 1"
   currentMatchId?: string;
-  status: "ACTIVE" | "IDLE" | "MAINTENANCE";
+  status: ArenaStatus;
   connectedJudgesCount: number;
   totalJudgesCount: number;
   displayConnected: boolean;
@@ -119,7 +148,7 @@ export interface Tournament {
   location: string;
   startDate: string;
   endDate: string;
-  status: "ONGOING" | "UPCOMING" | "COMPLETED";
+  status: TournamentStatus;
   totalArenas: number;
   totalMatches: number;
   totalAthletes: number;
@@ -155,7 +184,7 @@ export const DEFAULT_MATCH: Match = {
   timeRemainingSeconds: 120,
   roundDurationSeconds: 120,
   timerStatus: "READY",
-  status: "UPCOMING",
+  status: "SCHEDULED",
   scheduledTime: "10:00 WIB",
   redPenalties: [],
   bluePenalties: [],

@@ -35,7 +35,6 @@ export function MatchHeader({ match }: { match: Match }) {
 
 export function MatchStatus({ status }: { status: StatusType }) {
   const variants: Record<StatusType, { label: string; variant: "default" | "live" | "warning" | "success" | "danger" }> = {
-    UPCOMING: { label: "Belum Dimulai", variant: "default" },
     SCHEDULED: { label: "Terjadwal", variant: "default" },
     READY: { label: "Siap Bertanding", variant: "warning" },
     LIVE: { label: "Sedang Bertanding", variant: "live" },
@@ -44,7 +43,7 @@ export function MatchStatus({ status }: { status: StatusType }) {
     CANCELLED: { label: "Dibatalkan", variant: "danger" },
   };
 
-  const current = variants[status] || variants.UPCOMING;
+  const current = variants[status] || variants.SCHEDULED;
 
   return <Badge variant={current.variant}>{current.label}</Badge>;
 }

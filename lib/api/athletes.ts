@@ -9,9 +9,11 @@ export interface CreateAthleteDto {
   weightClass: string;
 }
 
-export interface UpdateAthleteDto extends Partial<CreateAthleteDto> {
-  seed?: number;
-}
+/**
+ * PATCH /api/athletes/:id memakai schema yang sama dengan pembuatan atlet,
+ * jadi payload pembaruan harus memuat seluruh field wajib.
+ */
+export type UpdateAthleteDto = CreateAthleteDto;
 
 export const athletesApi = {
   list: (): Promise<Athlete[]> => {

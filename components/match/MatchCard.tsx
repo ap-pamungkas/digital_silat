@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Match } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { formatTime, cn } from "@/lib/utils";
 import { Clock, ArrowRight, Pencil, Trash2 } from "lucide-react";
 
@@ -134,6 +135,59 @@ export function MatchCard({ match, viewMode = "operator", className, onEdit, onD
             </Link>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+export function MatchCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      role="status"
+      aria-label="Memuat partai pertandingan..."
+      className={cn(
+        "rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-4 shadow-xs",
+        className
+      )}
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-[#273649] pb-3 mb-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-16 rounded" />
+          <Skeleton className="h-4 w-12" />
+        </div>
+        <Skeleton className="h-5 w-14 rounded-full" />
+      </div>
+
+      <div className="flex items-center gap-2 mb-3">
+        <Skeleton className="h-3.5 w-32" />
+        <Skeleton className="h-3 w-16" />
+      </div>
+
+      <div className="space-y-2 mb-4">
+        {/* Sudut Merah */}
+        <div className="p-2.5 rounded-lg bg-red-50/30 dark:bg-[#1F232C]/60 border border-slate-100 dark:border-[#273649] flex items-center justify-between">
+          <div className="space-y-1.5 flex-1">
+            <Skeleton className="h-2.5 w-10" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <Skeleton className="h-8 w-10 rounded" />
+        </div>
+
+        {/* Sudut Biru */}
+        <div className="p-2.5 rounded-lg bg-blue-50/30 dark:bg-[#1F232C]/60 border border-slate-100 dark:border-[#273649] flex items-center justify-between">
+          <div className="space-y-1.5 flex-1">
+            <Skeleton className="h-2.5 w-10" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <Skeleton className="h-8 w-10 rounded" />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#273649]">
+        <Skeleton className="h-3.5 w-24" />
+        <Skeleton className="h-7 w-20 rounded-lg" />
       </div>
     </div>
   );

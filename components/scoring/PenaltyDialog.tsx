@@ -4,7 +4,7 @@ import * as React from "react";
 import { Corner, PenaltyType } from "@/lib/types";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { AlertTriangle, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PenaltyDialogProps {

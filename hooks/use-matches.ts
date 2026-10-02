@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { Match } from "@/lib/types";
-import { apiClient, UpdateMatchScheduleDto } from "@/lib/api";
+import { apiClient, CreateMatchDto, UpdateMatchScheduleDto } from "@/lib/api/client";
 
 export function useMatches(matches: Match[], onRefresh?: () => Promise<void>) {
   const [search, setSearch] = useState("");
@@ -27,33 +27,16 @@ export function useMatches(matches: Match[], onRefresh?: () => Promise<void>) {
     return {
       all: matches.length,
       live: matches.filter((m) => m.status === "LIVE").length,
-      upcoming: matches.filter((m) => m.status === "UPCOMING" || m.status === "SCHEDULED").length,
+      upcoming: matches.filter((m) => m.status === "SCHEDULED").length,
       finished: matches.filter((m) => m.status === "FINISHED").length,
     };
   }, [matches]);
 
   const createMatch = useCallback(
-    async (payload: {
-      arenaId: string;
-      matchNumber: string;
-      redAthleteId: string;
-      blueAthleteId: string;
-      stage?: UpdateMatchScheduleDto["stage"];
-      scheduledDate?: string;
-      scheduledTime?: string;
-    }) => {
+    async (payload: CreateMatchDto) => {
       setIsSubmitting(true);
       try {
-        const res = await fetch("/api/matches", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Gagal membuat partai pertandingan");
-        }
-        const data = await res.json();
+        const data = await apiClient.matches.create(payload);
         if (onRefresh) await onRefresh();
         return data;
       } finally {

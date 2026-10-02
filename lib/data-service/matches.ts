@@ -1,15 +1,24 @@
 import { prisma } from "@/lib/prisma";
-import { Match, MatchWinReason, PenaltyRecord, ScoreEvent } from "@/lib/types";
+import {
+  Match,
+  MatchStage,
+  MatchTimerAction,
+  MatchWinReason,
+  PenaltyRecord,
+  ScoreEvent,
+} from "@/lib/types";
+import { ActionResultVoid, getErrorMessage, toActionStatus } from "./shared";
+import { ConflictError, NotFoundError, ValidationError, toStatus } from "@/lib/server/errors";
 
 function parseScheduledDate(dateValue?: string, timeValue?: string): Date {
   if (dateValue && timeValue) {
     const dateParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue);
     const timeParts = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(timeValue);
-    if (!dateParts || !timeParts) throw new Error("Format tanggal atau waktu pertandingan tidak valid.");
+    if (!dateParts || !timeParts) throw new ValidationError("Format tanggal atau waktu pertandingan tidak valid.");
 
     const scheduledDate = new Date(`${dateValue}T${timeValue}:00.000Z`);
     if (Number.isNaN(scheduledDate.getTime()) || scheduledDate.toISOString().slice(0, 10) !== dateValue) {
-      throw new Error("Tanggal pertandingan tidak valid.");
+      throw new ValidationError("Tanggal pertandingan tidak valid.");
     }
     return scheduledDate;
   }
@@ -21,7 +30,7 @@ function parseScheduledDate(dateValue?: string, timeValue?: string): Date {
   if (!Number.isNaN(parsedDate.getTime())) return parsedDate;
 
   const timeParts = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
-  if (!timeParts) throw new Error("Format waktu pertandingan tidak valid.");
+  if (!timeParts) throw new ValidationError("Format waktu pertandingan tidak valid.");
 
   const scheduledDate = new Date();
   scheduledDate.setUTCHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
@@ -33,14 +42,10 @@ export type MatchScheduleInput = {
   matchNumber: string;
   redAthleteId: string;
   blueAthleteId: string;
-  stage: "PENYISIHAN" | "PEREMPAT_FINAL" | "SEMI_FINAL" | "FINAL" | "PEREBUTAN_JUARA_3";
+  stage: MatchStage;
   scheduledDate: string;
   scheduledTime: string;
 };
-
-type MatchScheduleResult =
-  | { success: true }
-  | { success: false; status: 400 | 404 | 409 | 500; error: string };
 
 export async function getMatches(): Promise<Match[]> {
   try {
@@ -74,7 +79,7 @@ export async function getMatches(): Promise<Match[]> {
           id: penalty.id,
           matchId: penalty.matchId,
           corner: "RED" as const,
-          type: penalty.type as any,
+          type: penalty.type,
           pointsDeducted: penalty.pointsDeducted,
           round: penalty.round,
           timestamp: penalty.timestamp.getTime(),
@@ -87,7 +92,7 @@ export async function getMatches(): Promise<Match[]> {
           id: penalty.id,
           matchId: penalty.matchId,
           corner: "BLUE" as const,
-          type: penalty.type as any,
+          type: penalty.type,
           pointsDeducted: penalty.pointsDeducted,
           round: penalty.round,
           timestamp: penalty.timestamp.getTime(),
@@ -99,14 +104,14 @@ export async function getMatches(): Promise<Match[]> {
         matchId: event.matchId,
         judgeId: event.judgeId,
         judgeNumber: event.judgeNumber,
-        corner: event.corner as "RED" | "BLUE",
-        action: event.action as any,
+        corner: event.corner,
+        action: event.action,
         points: event.points,
         round: event.round,
         matchTime: event.matchTime,
         timestamp: event.createdAt.getTime(),
         verified: event.verified,
-        status: event.status as "VERIFIED" | "PENDING" | "REJECTED",
+        status: event.status,
       }));
 
       const scheduledTimeStr = match.scheduledTime
@@ -129,7 +134,7 @@ export async function getMatches(): Promise<Match[]> {
           name: match.redAthlete.name,
           contingent: match.redAthlete.contingent.name,
           contingentCode: match.redAthlete.contingent.code,
-          gender: match.redAthlete.gender as "PUTRA" | "PUTRI",
+          gender: match.redAthlete.gender,
           weightClass: match.redAthlete.category.categoryClass,
           seed: match.redAthlete.seed || undefined,
         },
@@ -138,7 +143,7 @@ export async function getMatches(): Promise<Match[]> {
           name: match.blueAthlete.name,
           contingent: match.blueAthlete.contingent.name,
           contingentCode: match.blueAthlete.contingent.code,
-          gender: match.blueAthlete.gender as "PUTRA" | "PUTRI",
+          gender: match.blueAthlete.gender,
           weightClass: match.blueAthlete.category.categoryClass,
           seed: match.blueAthlete.seed || undefined,
         },
@@ -148,9 +153,9 @@ export async function getMatches(): Promise<Match[]> {
         totalRounds: match.totalRounds,
         timeRemainingSeconds: match.timeRemainingSeconds,
         roundDurationSeconds: match.roundDurationSeconds,
-        timerStatus: match.timerStatus as any,
-        status: match.status as any,
-        winner: (match.winnerCorner as "RED" | "BLUE") || undefined,
+        timerStatus: match.timerStatus,
+        status: match.status,
+        winner: match.winnerCorner || undefined,
         winReason: match.winReason ? match.winReason.replace(/_/g, " ") : undefined,
         scheduledTime: scheduledTimeStr,
         scheduledDate: match.scheduledTime?.toISOString().slice(0, 10) ?? "",
@@ -171,7 +176,7 @@ export async function createMatchAction(data: {
   categoryId?: string;
   categoryName?: string;
   matchNumber: string;
-  stage?: "PENYISIHAN" | "PEREMPAT_FINAL" | "SEMI_FINAL" | "FINAL" | "PEREBUTAN_JUARA_3";
+  stage?: MatchStage;
   redAthleteId: string;
   blueAthleteId: string;
   scheduledDate?: string;
@@ -185,7 +190,7 @@ export async function createMatchAction(data: {
           orderBy: { createdAt: "desc" },
         }) || (await prisma.tournament.findFirst({ orderBy: { createdAt: "desc" } }));
 
-    if (!tournament) throw new Error("Turnamen tidak ditemukan.");
+    if (!tournament) throw new NotFoundError("Turnamen tidak ditemukan.");
 
     const arena = await prisma.arena.findFirst({
       where: {
@@ -194,7 +199,7 @@ export async function createMatchAction(data: {
       },
     });
 
-    if (!arena) throw new Error("Gelanggang tidak ditemukan.");
+    if (!arena) throw new NotFoundError("Gelanggang tidak ditemukan.");
 
     const [redAthlete, blueAthlete] = await Promise.all([
       prisma.athlete.findUnique({
@@ -207,24 +212,24 @@ export async function createMatchAction(data: {
       }),
     ]);
 
-    if (!redAthlete || !blueAthlete) throw new Error("Atlet tidak ditemukan.");
+    if (!redAthlete || !blueAthlete) throw new NotFoundError("Atlet tidak ditemukan.");
     if (
       redAthlete.contingent.tournamentId !== tournament.id ||
       blueAthlete.contingent.tournamentId !== tournament.id
     ) {
-      throw new Error("Atlet tidak terdaftar pada turnamen ini.");
+      throw new ValidationError("Atlet tidak terdaftar pada turnamen ini.");
     }
     if (redAthlete.categoryId !== blueAthlete.categoryId) {
-      throw new Error("Kedua atlet harus berada pada kategori yang sama.");
+      throw new ConflictError("Kedua atlet harus berada pada kategori yang sama.");
     }
     if (data.categoryId && data.categoryId !== redAthlete.categoryId) {
-      throw new Error("Kategori pertandingan tidak sesuai dengan kategori atlet.");
+      throw new ConflictError("Kategori pertandingan tidak sesuai dengan kategori atlet.");
     }
 
     const category = await prisma.category.findFirst({
       where: { id: redAthlete.categoryId, tournamentId: tournament.id },
     });
-    if (!category) throw new Error("Kategori atlet tidak ditemukan pada turnamen ini.");
+    if (!category) throw new NotFoundError("Kategori atlet tidak ditemukan pada turnamen ini.");
 
     const stageVal = data.stage || "PENYISIHAN";
 
@@ -255,19 +260,27 @@ export async function createMatchAction(data: {
     });
 
     return {
-      success: true,
+      success: true as const,
       data: newMatch,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to create match:", error);
-    return { success: false, error: error?.message || "Gagal membuat partai pertandingan" };
+    const status = toActionStatus(toStatus(error));
+    if (status >= 500) {
+      return { success: false, status: 500, error: "Gagal membuat partai pertandingan." };
+    }
+    return {
+      success: false,
+      status,
+      error: getErrorMessage(error) || "Gagal membuat partai pertandingan.",
+    };
   }
 }
 
 export async function updateMatchScheduleAction(
   matchId: string,
   data: MatchScheduleInput
-): Promise<MatchScheduleResult> {
+): Promise<ActionResultVoid> {
   try {
     const match = await prisma.match.findUnique({
       where: { id: matchId },
@@ -381,7 +394,7 @@ export async function updateMatchScheduleAction(
   }
 }
 
-export async function deleteScheduledMatchAction(matchId: string): Promise<MatchScheduleResult> {
+export async function deleteScheduledMatchAction(matchId: string): Promise<ActionResultVoid> {
   try {
     const match = await prisma.match.findUnique({
       where: { id: matchId },
@@ -429,16 +442,16 @@ export async function updateMatchStatusAction(data: {
   status: "SCHEDULED" | "READY" | "LIVE" | "PAUSED" | "FINISHED" | "CANCELLED";
   winnerCorner?: "RED" | "BLUE";
   winReason?: MatchWinReason;
-}) {
+}): Promise<ActionResultVoid> {
   try {
-    const updated = await prisma.$transaction(async (transaction) => {
+    await prisma.$transaction(async (transaction) => {
       const match = await transaction.match.findUnique({
         where: { id: data.matchId },
       });
 
-      if (!match) throw new Error("Partai pertandingan tidak ditemukan.");
+      if (!match) throw new NotFoundError("Partai pertandingan tidak ditemukan.");
       if (data.status === "FINISHED" && !data.winnerCorner) {
-        throw new Error("Pemenang partai wajib dipilih.");
+        throw new ValidationError("Pemenang partai wajib dipilih.");
       }
 
       const winnerAthleteId = data.winnerCorner === "RED"
@@ -448,7 +461,7 @@ export async function updateMatchStatusAction(data: {
           : null;
 
       const finishedAt = data.status === "FINISHED" ? new Date() : undefined;
-      const updatedMatch = await transaction.match.update({
+      await transaction.match.update({
         where: { id: data.matchId },
         data: {
           status: data.status,
@@ -472,18 +485,22 @@ export async function updateMatchStatusAction(data: {
           },
         });
       }
-
-      return updatedMatch;
     });
 
-    return { success: true, data: updated };
-  } catch (error: any) {
+    return { success: true };
+  } catch (error: unknown) {
     console.error("Failed to update match status:", error);
-    return { success: false, error: error?.message || "Gagal mengupdate status pertandingan" };
+    const status = toActionStatus(toStatus(error));
+    if (status >= 500) {
+      return { success: false, status: 500, error: "Gagal memperbarui status pertandingan." };
+    }
+    return {
+      success: false,
+      status,
+      error: getErrorMessage(error) || "Gagal memperbarui status pertandingan.",
+    };
   }
 }
-
-type MatchTimerAction = "START" | "PAUSE" | "RESET" | "NEXT_ROUND" | "SET_ROUND";
 
 function getRemainingSeconds(match: {
   timeRemainingSeconds: number;
@@ -511,7 +528,7 @@ export async function getMatchTimerAction(matchId: string) {
     },
   });
 
-  if (!match) throw new Error("Partai pertandingan tidak ditemukan.");
+  if (!match) throw new NotFoundError("Partai pertandingan tidak ditemukan.");
 
   const timeRemainingSeconds = getRemainingSeconds(match, new Date());
   let timerStatus = match.timerStatus;
@@ -561,7 +578,7 @@ export async function updateMatchTimerAction(input: {
     },
   });
 
-  if (!match) throw new Error("Partai pertandingan tidak ditemukan.");
+  if (!match) throw new NotFoundError("Partai pertandingan tidak ditemukan.");
 
   const now = new Date();
   const timeRemainingSeconds = getRemainingSeconds(match, now);
@@ -607,7 +624,7 @@ export async function updateMatchTimerAction(input: {
       ? Math.min(match.totalRounds, match.currentRound + 1)
       : input.round;
     if (!nextRound || !Number.isInteger(nextRound) || nextRound < 1 || nextRound > match.totalRounds) {
-      throw new Error("Nomor babak tidak valid.");
+      throw new ValidationError("Nomor babak tidak valid.");
     }
     if (input.action === "NEXT_ROUND" && nextRound === match.currentRound) {
       return getMatchTimerAction(match.id);

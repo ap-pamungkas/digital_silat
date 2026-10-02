@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Input } from "@/components/ui/Input";
 import { Battery, ArrowRight, LayoutDashboard, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiClient } from "@/lib/api/client";
 
 export default function JudgeHomePage() {
   const { activeMatch, currentJudgeNumber, setCurrentJudgeNumber } = useScoring();
@@ -31,18 +32,11 @@ export default function JudgeHomePage() {
     setIsVerifyingCode(true);
     setVerificationError("");
     try {
-      const response = await fetch("/api/judge-sessions/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          matchId: activeMatch.id,
-          judgeNumber: currentJudgeNumber,
-          accessCode,
-        }),
+      await apiClient.judgeSessions.verify({
+        matchId: activeMatch.id,
+        judgeNumber: currentJudgeNumber,
+        accessCode,
       });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error || "Kode akses tidak valid.");
-
       sessionStorage.setItem(`judge-access:${activeMatch.id}:${currentJudgeNumber}`, accessCode);
       setVerifiedAccessKey(verificationKey);
     } catch (error) {

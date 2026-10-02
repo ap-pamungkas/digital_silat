@@ -19,15 +19,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize theme from localStorage on mount
   React.useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem("pagar-theme") as Theme | null;
-      if (savedTheme === "dark" || savedTheme === "light" || savedTheme === "system") {
-        setThemeState(savedTheme);
+    void Promise.resolve().then(() => {
+      try {
+        const savedTheme = localStorage.getItem("pagar-theme") as Theme | null;
+        if (savedTheme === "dark" || savedTheme === "light" || savedTheme === "system") {
+          setThemeState(savedTheme);
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-    setMounted(true);
+      setMounted(true);
+    });
   }, []);
 
   // Update DOM when theme changes

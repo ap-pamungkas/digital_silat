@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Athlete } from "@/lib/types";
+import { toStatus } from "@/lib/server/errors";
+import { ActionResult, ActionResultVoid, getErrorMessage, toActionStatus } from "./shared";
 
 export async function getAthletes(): Promise<Athlete[]> {
   try {
@@ -18,7 +20,7 @@ export async function getAthletes(): Promise<Athlete[]> {
       name: athlete.name,
       contingent: athlete.contingent.name,
       contingentCode: athlete.contingent.code,
-      gender: athlete.gender as "PUTRA" | "PUTRI",
+      gender: athlete.gender,
       weightClass: athlete.category.categoryClass,
       avatarUrl: athlete.avatarUrl || undefined,
       seed: athlete.seed || undefined,
@@ -35,7 +37,7 @@ export async function createAthleteAction(data: {
   contingentCode?: string;
   gender: "PUTRA" | "PUTRI";
   weightClassName?: string;
-}) {
+}): Promise<ActionResult<Athlete>> {
   try {
     const tournament = await prisma.tournament.findFirst({
       orderBy: { createdAt: "desc" },
@@ -100,13 +102,21 @@ export async function createAthleteAction(data: {
         name: newAthlete.name,
         contingent: newAthlete.contingent.name,
         contingentCode: newAthlete.contingent.code,
-        gender: newAthlete.gender as "PUTRA" | "PUTRI",
+        gender: newAthlete.gender,
         weightClass: newAthlete.category.categoryClass,
-      },
+      } satisfies Athlete,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to create athlete:", error);
-    return { success: false, error: error?.message || "Gagal menyimpan atlet" };
+    const status = toActionStatus(toStatus(error));
+    if (status >= 500) {
+      return { success: false, status: 500, error: "Gagal menyimpan atlet." };
+    }
+    return {
+      success: false,
+      status,
+      error: getErrorMessage(error) || "Gagal menyimpan atlet.",
+    };
   }
 }
 
@@ -119,7 +129,7 @@ export async function updateAthleteAction(
     gender: "PUTRA" | "PUTRI";
     weightClassName: string;
   }
-) {
+): Promise<ActionResult<Athlete>> {
   try {
     const athlete = await prisma.athlete.findUnique({
       where: { id },
@@ -250,11 +260,11 @@ export async function updateAthleteAction(
         name: updated.name,
         contingent: updated.contingent.name,
         contingentCode: updated.contingent.code,
-        gender: updated.gender as "PUTRA" | "PUTRI",
+        gender: updated.gender,
         weightClass: updated.category.categoryClass,
         avatarUrl: updated.avatarUrl || undefined,
         seed: updated.seed || undefined,
-      },
+      } satisfies Athlete,
     };
   } catch (error: unknown) {
     console.error("Failed to update athlete:", error);
@@ -262,7 +272,7 @@ export async function updateAthleteAction(
   }
 }
 
-export async function deleteAthleteAction(id: string) {
+export async function deleteAthleteAction(id: string): Promise<ActionResultVoid> {
   try {
     const athlete = await prisma.athlete.findUnique({
       where: { id },
