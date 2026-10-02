@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TOURNAMENT_STATUSES } from "@/lib/types";
+import { optionalText } from "./common";
 
 export const createTournamentSchema = z.object({
   name: z.string().min(1),
@@ -8,11 +9,6 @@ export const createTournamentSchema = z.object({
   endDate: z.string().optional(),
   totalArenas: z.union([z.string(), z.number()]).optional(),
 });
-
-const optionalText = z.preprocess(
-  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-  z.string().optional()
-);
 
 export const updateTournamentSchema = z
   .object({

@@ -5,12 +5,13 @@ import { Corner, PenaltyType } from "@/lib/types";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { ShieldAlert } from "lucide-react";
+import { PENALTY_OPTIONS, PenaltyOption } from "@/lib/scoring/penalties";
 import { cn } from "@/lib/utils";
 
 interface PenaltyDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirmPenalty: (corner: Corner, type: PenaltyType, points: number, note?: string) => void;
+  onConfirmPenalty: (corner: Corner, type: PenaltyType, note?: string) => void;
   redAthleteName: string;
   blueAthleteName: string;
 }
@@ -23,32 +24,13 @@ export function PenaltyDialog({
   blueAthleteName,
 }: PenaltyDialogProps) {
   const [selectedCorner, setSelectedCorner] = React.useState<Corner>("RED");
-  const [selectedPenalty, setSelectedPenalty] = React.useState<{
-    type: PenaltyType;
-    label: string;
-    points: number;
-    description: string;
-  }>({
-    type: "TEGURAN_1",
-    label: "Teguran 1",
-    points: 1,
-    description: "Pengurangan 1 Poin",
-  });
+  const [selectedPenalty, setSelectedPenalty] = React.useState<PenaltyOption>(
+    PENALTY_OPTIONS[0]
+  );
   const [isConfirmStep, setIsConfirmStep] = React.useState(false);
   const [note, setNote] = React.useState("");
 
-  const penalties: {
-    type: PenaltyType;
-    label: string;
-    points: number;
-    description: string;
-  }[] = [
-    { type: "TEGURAN_1", label: "Teguran 1", points: 1, description: "Pengurangan 1 Poin" },
-    { type: "TEGURAN_2", label: "Teguran 2", points: 2, description: "Pengurangan 2 Poin" },
-    { type: "PERINGATAN_1", label: "Peringatan 1 (P1)", points: 5, description: "Pengurangan 5 Poin" },
-    { type: "PERINGATAN_2", label: "Peringatan 2 (P2)", points: 10, description: "Pengurangan 10 Poin" },
-    { type: "DISKUALIFIKASI", label: "Diskualifikasi", points: 99, description: "Kalah Mutlak / Pelanggaran Berat" },
-  ];
+  const penalties = PENALTY_OPTIONS;
 
   const handleReset = React.useCallback(() => {
     setIsConfirmStep(false);
@@ -57,7 +39,7 @@ export function PenaltyDialog({
   }, [onClose]);
 
   const handleApply = React.useCallback(() => {
-    onConfirmPenalty(selectedCorner, selectedPenalty.type, selectedPenalty.points, note || selectedPenalty.label);
+    onConfirmPenalty(selectedCorner, selectedPenalty.type, note || selectedPenalty.label);
     handleReset();
   }, [onConfirmPenalty, selectedCorner, selectedPenalty, note, handleReset]);
 

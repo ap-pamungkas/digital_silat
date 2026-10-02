@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Corner, PenaltyRecord, ScoringAction, ScoreEvent } from "@/lib/types";
+import { Corner, PenaltyRecord, PenaltyType, ScoringAction, ScoreEvent } from "@/lib/types";
 import {
   agreedJudgeNumbers,
   buildScoreEventGroups,
@@ -7,7 +7,25 @@ import {
   SCORE_CONSENSUS_WINDOW_MS,
   scorePointsForAction,
 } from "@/lib/scoring/rules";
+import { penaltyPointsForType } from "@/lib/scoring/penalties";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/server/errors";
+
+function formatMatchTime(remainingSeconds: number): string {
+  return `${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`;
+}
+
+function remainingMatchSeconds(
+  timerStatus: string,
+  timerLastStartedAt: Date | null,
+  timeRemainingSeconds: number,
+  now: Date
+): number {
+  const elapsedSeconds =
+    timerStatus === "RUNNING" && timerLastStartedAt
+      ? Math.floor((now.getTime() - timerLastStartedAt.getTime()) / 1000)
+      : 0;
+  return Math.max(0, timeRemainingSeconds - elapsedSeconds);
+}
 
 export async function getMatchScoringSnapshot(matchId: string) {
   const match = await prisma.match.findUnique({
@@ -105,11 +123,13 @@ export async function submitScoreEventAction(input: {
     if (!judge) throw new ValidationError("Juri belum terdaftar pada gelanggang pertandingan ini.");
 
     const now = new Date();
-    const elapsedSeconds = match.timerStatus === "RUNNING" && match.timerLastStartedAt
-      ? Math.floor((now.getTime() - match.timerLastStartedAt.getTime()) / 1000)
-      : 0;
-    const remainingSeconds = Math.max(0, match.timeRemainingSeconds - elapsedSeconds);
-    const matchTime = `${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`;
+    const remainingSeconds = remainingMatchSeconds(
+      match.timerStatus,
+      match.timerLastStartedAt,
+      match.timeRemainingSeconds,
+      now
+    );
+    const matchTime = formatMatchTime(remainingSeconds);
     const recentEvents = await transaction.scoreEvent.findMany({
       where: {
         matchId: match.id,
@@ -227,4 +247,83 @@ export async function decideScoreEventAction(input: {
   });
 
   return getMatchScoringSnapshot(input.matchId);
+}
+
+export async function applyPenaltyAction(input: {
+  matchId: string;
+  corner: Corner;
+  type: PenaltyType;
+  refereeNote?: string;
+}) {
+  const pointsDeducted = penaltyPointsForType(input.type);
+
+  const penaltyId = await prisma.$transaction(async (transaction) => {
+    const match = await transaction.match.findUnique({
+      where: { id: input.matchId },
+      select: {
+        id: true,
+        status: true,
+        redScore: true,
+        blueScore: true,
+        currentRound: true,
+        timeRemainingSeconds: true,
+        timerStatus: true,
+        timerLastStartedAt: true,
+      },
+    });
+    if (!match) throw new NotFoundError("Partai pertandingan tidak ditemukan.");
+    if (match.status === "FINISHED" || match.status === "CANCELLED") {
+      throw new ConflictError("Pertandingan tidak menerima hukuman baru.");
+    }
+
+    const now = new Date();
+    const remainingSeconds = remainingMatchSeconds(
+      match.timerStatus,
+      match.timerLastStartedAt,
+      match.timeRemainingSeconds,
+      now
+    );
+
+    const penalty = await transaction.penalty.create({
+      data: {
+        matchId: match.id,
+        corner: input.corner,
+        type: input.type,
+        pointsDeducted,
+        round: match.currentRound,
+        refereeNote: input.refereeNote || null,
+        matchTime: formatMatchTime(remainingSeconds),
+      },
+      select: { id: true },
+    });
+
+    await transaction.match.update({
+      where: { id: match.id },
+      data: input.corner === "RED"
+        ? { redScore: Math.max(0, match.redScore - pointsDeducted) }
+        : { blueScore: Math.max(0, match.blueScore - pointsDeducted) },
+    });
+
+    await transaction.auditLog.create({
+      data: {
+        matchId: match.id,
+        action: "PENALTY_APPLIED",
+        details: JSON.stringify({
+          penaltyId: penalty.id,
+          corner: input.corner,
+          type: input.type,
+          pointsDeducted,
+          round: match.currentRound,
+          refereeNote: input.refereeNote || null,
+        }),
+      },
+    });
+
+    return penalty.id;
+  });
+
+  return {
+    penaltyId,
+    snapshot: await getMatchScoringSnapshot(input.matchId),
+  };
 }

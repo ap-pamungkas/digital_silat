@@ -13,7 +13,6 @@ import {
   Corner,
   ScoringAction,
   PenaltyType,
-  PenaltyRecord,
   MatchWinReason,
   DEFAULT_MATCH,
 } from "@/lib/types";
@@ -47,9 +46,8 @@ export interface ScoringContextType {
   applyPenalty: (
     corner: Corner,
     type: PenaltyType,
-    points: number,
     note?: string
-  ) => void;
+  ) => Promise<void>;
   toggleTimer: () => Promise<void>;
   resetTimer: () => Promise<void>;
   setRound: (round: number) => Promise<void>;
@@ -285,47 +283,16 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
   );
 
   const applyPenalty = useCallback(
-    (corner: Corner, type: PenaltyType, points: number, note?: string) => {
-      const newPenalty: PenaltyRecord = {
-        id: `PEN-${Date.now()}`,
-        matchId: activeMatch.id,
+    async (corner: Corner, type: PenaltyType, note?: string) => {
+      if (activeMatch.id === "NO_MATCH") throw new Error("Belum ada pertandingan aktif.");
+      const result = await apiClient.matches.applyPenalty(activeMatch.id, {
         corner,
         type,
-        pointsDeducted: points,
-        round: activeMatch.currentRound,
-        timestamp: Date.now(),
-        refereeNote: note || "Pelanggaran Wasit",
-      };
-
-      let targetUpdated: Match | null = null;
-
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id !== activeMatch.id) return m;
-          const updatedRedScore =
-            corner === "RED" ? Math.max(0, m.redScore - points) : m.redScore;
-          const updatedBlueScore =
-            corner === "BLUE" ? Math.max(0, m.blueScore - points) : m.blueScore;
-
-          const updated: Match = {
-            ...m,
-            redScore: updatedRedScore,
-            blueScore: updatedBlueScore,
-            redPenalties:
-              corner === "RED" ? [...m.redPenalties, newPenalty] : m.redPenalties,
-            bluePenalties:
-              corner === "BLUE" ? [...m.bluePenalties, newPenalty] : m.bluePenalties,
-          };
-          targetUpdated = updated;
-          return updated;
-        })
-      );
-
-      if (targetUpdated) {
-        broadcastMatchUpdate(targetUpdated);
-      }
+        refereeNote: note,
+      });
+      applyScoringSnapshot(result.snapshot);
     },
-    [activeMatch, broadcastMatchUpdate]
+    [activeMatch.id, applyScoringSnapshot]
   );
 
   const toggleTimer = useCallback(async () => {

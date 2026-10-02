@@ -12,6 +12,7 @@ import type { CreateAthleteDto, UpdateAthleteDto } from "./athletes";
 import type { CreateJudgeDto, UpdateJudgeDto } from "./judges";
 import type { VerifyJudgeSessionDto } from "./judge-sessions";
 import type {
+  ApplyPenaltyDto,
   CreateMatchDto,
   DecideScoreEventDto,
   SubmitScoreEventDto,
@@ -25,6 +26,7 @@ import type {
   CreateAthleteInput,
   CreateJudgeInput,
   CreateMatchInput,
+  CreatePenaltyInput,
   CreateTournamentInput,
   DecideScoreEventInput,
   SubmitScoreEventInput,
@@ -59,6 +61,7 @@ export const apiContracts: {
   matchStatusUpdate: ContractCheck<UpdateMatchStatusDto, UpdateMatchStatusInput>;
   scoreEventSubmit: ContractCheck<SubmitScoreEventDto, SubmitScoreEventInput>;
   scoreEventDecision: ContractCheck<DecideScoreEventDto, DecideScoreEventInput>;
+  penaltyApply: ContractCheck<ApplyPenaltyDto, CreatePenaltyInput>;
   timerUpdate: ContractCheck<UpdateTimerDto, UpdateTimerInput>;
   tournamentCreate: ContractCheck<CreateTournamentDto, CreateTournamentInput>;
   tournamentUpdate: ContractCheck<UpdateTournamentDto, UpdateTournamentInput>;
@@ -73,6 +76,7 @@ export const apiContracts: {
   matchStatusUpdate: true,
   scoreEventSubmit: true,
   scoreEventDecision: true,
+  penaltyApply: true,
   timerUpdate: true,
   tournamentCreate: true,
   tournamentUpdate: true,

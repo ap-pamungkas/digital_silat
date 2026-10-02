@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createMatchSchema,
+  createPenaltySchema,
   createTournamentSchema,
   decideScoreEventSchema,
   submitScoreEventSchema,
@@ -233,6 +234,68 @@ describe("updateTournamentSchema", () => {
 
   it("rejects an unknown status", () => {
     expect(updateTournamentSchema.safeParse({ status: "SELESAI" }).success).toBe(false);
+  });
+});
+
+describe("createPenaltySchema", () => {
+  it("accepts a corner and a penalty type", () => {
+    const result = createPenaltySchema.safeParse({ corner: "RED", type: "TEGURAN_1" });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.refereeNote).toBeUndefined();
+  });
+
+  it("keeps a referee note and trims a blank one away", () => {
+    expect(
+      createPenaltySchema.safeParse({ corner: "BLUE", type: "PERINGATAN_1", refereeNote: "Keluar gelanggang" })
+        .success
+    ).toBe(true);
+
+    const blank = createPenaltySchema.safeParse({
+      corner: "BLUE",
+      type: "PERINGATAN_1",
+      refereeNote: "   ",
+    });
+    expect(blank.success).toBe(true);
+    if (!blank.success) return;
+    expect(blank.data.refereeNote).toBeUndefined();
+  });
+
+  it("rejects a note longer than 200 characters", () => {
+    const result = createPenaltySchema.safeParse({
+      corner: "RED",
+      type: "TEGURAN_2",
+      refereeNote: "x".repeat(201),
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unknown corner or penalty type", () => {
+    expect(createPenaltySchema.safeParse({ corner: "GREEN", type: "TEGURAN_1" }).success).toBe(
+      false
+    );
+    expect(createPenaltySchema.safeParse({ corner: "RED", type: "PERINGATAN_4" }).success).toBe(
+      false
+    );
+  });
+
+  it("does not accept a client supplied deduction amount", () => {
+    const result = createPenaltySchema.safeParse({
+      corner: "RED",
+      type: "TEGURAN_1",
+      pointsDeducted: 50,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect("pointsDeducted" in result.data).toBe(false);
+  });
+
+  it("requires both corner and type", () => {
+    expect(createPenaltySchema.safeParse({ corner: "RED" }).success).toBe(false);
+    expect(createPenaltySchema.safeParse({ type: "TEGURAN_1" }).success).toBe(false);
   });
 });
 

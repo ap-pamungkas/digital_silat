@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
 import { Corner, PenaltyType } from "@/lib/types";
+import { penaltyLabel, penaltyPointsForType } from "@/lib/scoring/penalties";
 import {
   Play,
   Pause,
@@ -86,12 +87,21 @@ export default function OperatorLiveScoringPage() {
     }
   };
 
-  const handlePenalty = (corner: Corner, type: PenaltyType, points: number, note?: string) => {
-    applyPenalty(corner, type, points, note);
-    toast.warning(
-      "Hukuman Wasit Diberikan",
-      `-${points} Poin untuk Sudut ${corner === "RED" ? "Merah" : "Biru"} (${note || type}).`
-    );
+  const handlePenalty = async (corner: Corner, type: PenaltyType, note?: string) => {
+    try {
+      await applyPenalty(corner, type, note);
+      toast.warning(
+        "Hukuman Wasit Diberikan",
+        `-${penaltyPointsForType(type)} Poin untuk Sudut ${
+          corner === "RED" ? "Merah" : "Biru"
+        } (${note || penaltyLabel(type)}).`
+      );
+    } catch (error) {
+      toast.error(
+        "Hukuman Gagal Disimpan",
+        error instanceof Error ? error.message : "Hukuman tidak dapat disimpan ke server."
+      );
+    }
   };
 
   const handleToggleTimer = async () => {
@@ -412,7 +422,7 @@ export default function OperatorLiveScoringPage() {
                     variant="outline"
                     size="sm"
                     className="px-3"
-                    onClick={() => handlePenalty("RED", "TEGURAN_1", 1, "Koreksi -1")}
+                    onClick={() => void handlePenalty("RED", "TEGURAN_1", "Koreksi -1")}
                   >
                     -1
                   </Button>
@@ -453,7 +463,7 @@ export default function OperatorLiveScoringPage() {
                     variant="outline"
                     size="sm"
                     className="px-3"
-                    onClick={() => handlePenalty("BLUE", "TEGURAN_1", 1, "Koreksi -1")}
+                    onClick={() => void handlePenalty("BLUE", "TEGURAN_1", "Koreksi -1")}
                   >
                     -1
                   </Button>

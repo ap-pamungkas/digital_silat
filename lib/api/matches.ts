@@ -8,6 +8,7 @@ import {
   MatchWinReason,
   ScoreEvent,
   PenaltyRecord,
+  PenaltyType,
   ScoringAction,
   TimerStatus,
 } from "@/lib/types";
@@ -50,6 +51,21 @@ export interface DecideScoreEventDto {
 export interface UpdateTimerDto {
   action: MatchTimerAction;
   round?: number;
+}
+
+export interface ApplyPenaltyResult {
+  penaltyId: string;
+  snapshot: MatchScoringSnapshot;
+}
+
+/**
+ * `pointsDeducted` is derived on the server from `type`, so the client cannot
+ * send its own value.
+ */
+export interface ApplyPenaltyDto {
+  corner: Corner;
+  type: PenaltyType;
+  refereeNote?: string;
 }
 
 export interface CreateMatchDto {
@@ -125,6 +141,10 @@ getTimer: (id: string): Promise<MatchTimerSnapshot> => {
       `/api/matches/${matchId}/score-events/${eventId}`,
       body
     );
+  },
+
+  applyPenalty: (id: string, data: ApplyPenaltyDto): Promise<ApplyPenaltyResult> => {
+    return http.post<ApplyPenaltyResult>(`/api/matches/${id}/penalties`, data);
   },
 
   updateSchedule: (id: string, data: UpdateMatchScheduleDto): Promise<{ success: boolean }> => {

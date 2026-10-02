@@ -11,6 +11,7 @@ import { ScoreEventList } from "@/components/scoring/ScoreEventList";
 import { JudgeStatus } from "@/components/judge/JudgeStatus";
 import { Button } from "@/components/ui/Button";
 import { Corner, ScoringAction, PenaltyType } from "@/lib/types";
+import { penaltyLabel, penaltyPointsForType } from "@/lib/scoring/penalties";
 import {
   AlertTriangle,
   History,
@@ -101,19 +102,25 @@ function JudgeScoringContent() {
     }
   };
 
-  const handleJudgePenalty = (
+  const handleJudgePenalty = async (
     corner: Corner,
     type: PenaltyType,
-    points: number,
     note?: string
   ) => {
-    applyPenalty(corner, type, points, note);
-    toast.warning(
-      "Hukuman Wasit",
-      `-${points} Poin pada Sudut ${
-        corner === "RED" ? "Merah" : "Biru"
-      } (${note || type}).`
-    );
+    try {
+      await applyPenalty(corner, type, note);
+      toast.warning(
+        "Hukuman Wasit",
+        `-${penaltyPointsForType(type)} Poin pada Sudut ${
+          corner === "RED" ? "Merah" : "Biru"
+        } (${note || penaltyLabel(type)}).`
+      );
+    } catch (error) {
+      toast.error(
+        "Hukuman Gagal Disimpan",
+        error instanceof Error ? error.message : "Hukuman tidak dapat disimpan ke server."
+      );
+    }
   };
 
   React.useEffect(() => {
