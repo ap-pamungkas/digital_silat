@@ -5,5 +5,6 @@ export * from "./use-athletes";
 export * from "./use-tournaments";
 export * from "./use-arenas";
 export * from "./use-judges";
+export * from "./use-match-realtime";
 export * from "./use-matches";
 export * from "./use-toast";

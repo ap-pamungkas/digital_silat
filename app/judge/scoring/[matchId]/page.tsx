@@ -12,6 +12,7 @@ import { JudgeStatus } from "@/components/judge/JudgeStatus";
 import { Button } from "@/components/ui/Button";
 import { Corner, ScoringAction, PenaltyType } from "@/lib/types";
 import { penaltyLabel, penaltyPointsForType } from "@/lib/scoring/penalties";
+import { REALTIME_STATUS_LABELS } from "@/lib/realtime/events";
 import {
   AlertTriangle,
   History,
@@ -42,6 +43,7 @@ function JudgeScoringContent() {
     submitScore,
     applyPenalty,
     lastFeedback,
+    realtimeStatus,
   } = useScoring();
   const { judges, refreshJudges } = useJudges();
 
@@ -186,6 +188,12 @@ function JudgeScoringContent() {
             ))}
           </div>
           <JudgeStatus status={assignedJudge?.status ?? "OFFLINE"} pingMs={assignedJudge?.pingMs} showText={false} />
+          <span
+            className="hidden sm:inline-flex text-[10px] font-medium text-slate-500 dark:text-[#64748B]"
+            title="Status sinkronisasi realtime"
+          >
+            {REALTIME_STATUS_LABELS[realtimeStatus]}
+          </span>
         </div>
       </header>
 

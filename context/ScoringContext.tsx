@@ -22,6 +22,13 @@ import {
   MatchTimerAction,
   MatchTimerSnapshot,
 } from "@/lib/api/matches";
+import {
+  MATCH_REALTIME_EVENT,
+  type MatchRealtimeEvent,
+  type RealtimeStatus,
+} from "@/lib/realtime/events";
+import { publishMatchEvent } from "@/lib/realtime/supabase-client";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 export interface LastFeedbackState {
   corner: Corner;
@@ -61,6 +68,7 @@ export interface ScoringContextType {
   isLoading: boolean;
   consensusWindowMs: number;
   minJudgesRequired: number;
+  realtimeStatus: RealtimeStatus;
 }
 
 const ScoringContext = createContext<ScoringContextType | null>(null);
@@ -68,6 +76,11 @@ const ScoringContext = createContext<ScoringContextType | null>(null);
 const BROADCAST_CHANNEL_NAME = "digital_silat_scoring_bus";
 const CONSENSUS_WINDOW_MS = 2000;
 const MIN_JUDGES_REQUIRED = 2;
+/**
+ * Safety poll. Realtime delivers the snapshot immediately, this interval only
+ * repairs a missed broadcast or a client that joined before the write landed.
+ */
+const SAFETY_POLL_INTERVAL_MS = 10000;
 
 interface BroadcastMessage {
   type: "MATCH_UPDATED";
@@ -194,11 +207,73 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
       : match));
   }, []);
 
+  const applyMatchStatus = useCallback(
+    (
+      matchId: string,
+      payload: {
+        status: Match["status"];
+        currentRound?: number;
+        winnerCorner?: Corner;
+        winReason?: string;
+      }
+    ) => {
+      setMatches((prev) =>
+        prev.map((match) =>
+          match.id !== matchId
+            ? match
+            : {
+                ...match,
+                status: payload.status,
+                currentRound: payload.currentRound ?? match.currentRound,
+                winner: payload.winnerCorner ?? match.winner,
+                winReason: payload.winReason ?? match.winReason,
+              }
+        )
+      );
+    },
+    []
+  );
+
+  const realtimeStatus = useMatchRealtime(
+    activeMatch.id === "NO_MATCH" ? null : activeMatch.id,
+    (event: MatchRealtimeEvent) => {
+      if (event.type === MATCH_REALTIME_EVENT.scoringSnapshot) {
+        applyScoringSnapshot(event.payload);
+        return;
+      }
+      if (event.type === MATCH_REALTIME_EVENT.timerSnapshot) {
+        applyTimerSnapshot(event.payload);
+        return;
+      }
+      applyMatchStatus(event.matchId, event.payload);
+    }
+  );
+
+  const publishScoringSnapshot = useCallback(
+    (snapshot: MatchScoringSnapshot) => {
+      void publishMatchEvent({
+        type: MATCH_REALTIME_EVENT.scoringSnapshot,
+        matchId: snapshot.matchId,
+        payload: snapshot,
+      });
+    },
+    []
+  );
+
+  const publishTimerSnapshot = useCallback((snapshot: MatchTimerSnapshot) => {
+    void publishMatchEvent({
+      type: MATCH_REALTIME_EVENT.timerSnapshot,
+      matchId: snapshot.matchId,
+      payload: snapshot,
+    });
+  }, []);
+
   const sendTimerAction = useCallback(async (action: MatchTimerAction, round?: number) => {
     if (activeMatch.id === "NO_MATCH") return;
     const snapshot = await apiClient.matches.updateTimer(activeMatch.id, action, round);
     applyTimerSnapshot(snapshot);
-  }, [activeMatch.id, applyTimerSnapshot]);
+    publishTimerSnapshot(snapshot);
+  }, [activeMatch.id, applyTimerSnapshot, publishTimerSnapshot]);
 
   useEffect(() => {
     if (activeMatch.id === "NO_MATCH") return;
@@ -219,14 +294,14 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
     };
 
     void Promise.resolve().then(syncScoring);
-    const interval = setInterval(() => void syncScoring(), 1000);
+    const interval = setInterval(() => void syncScoring(), SAFETY_POLL_INTERVAL_MS);
     return () => {
       isCancelled = true;
       clearInterval(interval);
     };
   }, [activeMatch.id, applyScoringSnapshot]);
 
-  // Poll only the timer fields so separate judge/operator devices share server time.
+  // Safety poll for the timer fields so separate judge/operator devices share server time.
   useEffect(() => {
     if (activeMatch.id === "NO_MATCH") return;
 
@@ -246,7 +321,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
     };
 
     void Promise.resolve().then(syncTimer);
-    const interval = setInterval(() => void syncTimer(), 1000);
+    const interval = setInterval(() => void syncTimer(), SAFETY_POLL_INTERVAL_MS);
 
     return () => {
       isCancelled = true;
@@ -270,6 +345,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         judgeNumber: judgeNum,
       });
       applyScoringSnapshot(result.snapshot);
+      publishScoringSnapshot(result.snapshot);
       setLastFeedback({
         corner,
         action,
@@ -279,7 +355,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         agreedJudges: result.agreedJudges,
       });
     },
-    [activeMatch, currentJudgeNumber, applyScoringSnapshot]
+    [activeMatch, currentJudgeNumber, applyScoringSnapshot, publishScoringSnapshot]
   );
 
   const applyPenalty = useCallback(
@@ -291,8 +367,9 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         refereeNote: note,
       });
       applyScoringSnapshot(result.snapshot);
+      publishScoringSnapshot(result.snapshot);
     },
-    [activeMatch.id, applyScoringSnapshot]
+    [activeMatch.id, applyScoringSnapshot, publishScoringSnapshot]
   );
 
   const toggleTimer = useCallback(async () => {
@@ -338,8 +415,19 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         match.id === updatedMatch.id ? updatedMatch : match
       ));
       broadcastMatchUpdate(updatedMatch);
+      void publishMatchEvent({
+        type: MATCH_REALTIME_EVENT.matchStatus,
+        matchId: activeMatch.id,
+        payload: {
+          status: "FINISHED",
+          currentRound: updatedMatch.currentRound,
+          winnerCorner,
+          winReason: reason,
+        },
+      });
+      publishScoringSnapshot(await apiClient.matches.getScoringSnapshot(activeMatch.id));
     },
-    [activeMatch, broadcastMatchUpdate]
+    [activeMatch, broadcastMatchUpdate, publishScoringSnapshot]
   );
 
   /**
@@ -350,6 +438,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
       const targetEvent = activeMatch.events.find((event) => event.id === eventId);
       const snapshot = await apiClient.matches.decideScoreEvent(activeMatch.id, eventId, "VERIFY");
       applyScoringSnapshot(snapshot);
+      publishScoringSnapshot(snapshot);
       if (targetEvent) {
         setLastFeedback({
           corner: targetEvent.corner,
@@ -361,7 +450,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [activeMatch, applyScoringSnapshot]
+    [activeMatch, applyScoringSnapshot, publishScoringSnapshot]
   );
 
   /**
@@ -372,6 +461,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
       const targetEvent = activeMatch.events.find((event) => event.id === eventId);
       const snapshot = await apiClient.matches.decideScoreEvent(activeMatch.id, eventId, "REJECT");
       applyScoringSnapshot(snapshot);
+      publishScoringSnapshot(snapshot);
       if (targetEvent) {
         setLastFeedback({
           corner: targetEvent.corner,
@@ -383,7 +473,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [activeMatch, applyScoringSnapshot]
+    [activeMatch, applyScoringSnapshot, publishScoringSnapshot]
   );
 
   return (
@@ -408,6 +498,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         consensusWindowMs: CONSENSUS_WINDOW_MS,
         minJudgesRequired: MIN_JUDGES_REQUIRED,
+        realtimeStatus,
       }}
     >
       {children}

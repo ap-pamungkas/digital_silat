@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
 import { Corner, PenaltyType } from "@/lib/types";
 import { penaltyLabel, penaltyPointsForType } from "@/lib/scoring/penalties";
+import { REALTIME_STATUS_LABELS } from "@/lib/realtime/events";
 import {
   Play,
   Pause,
@@ -44,6 +45,7 @@ export default function OperatorLiveScoringPage() {
     endMatch,
     verifyEvent,
     rejectEvent,
+    realtimeStatus,
   } = useScoring();
 
   const [isPenaltyOpen, setIsPenaltyOpen] = React.useState(false);
@@ -182,6 +184,9 @@ export default function OperatorLiveScoringPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 dark:bg-[#1F232C] text-xs font-bold text-slate-600 dark:text-[#94A3B8] border border-slate-200 dark:border-[#2A2D36]">
+            {REALTIME_STATUS_LABELS[realtimeStatus]}
+          </span>
           <Link
             href={`/display/${current.arenaId}`}
             target="_blank"
