@@ -34,9 +34,19 @@ export class ConflictError extends Error {
   }
 }
 
+export class ForbiddenError extends Error {
+  readonly status = 403;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
 const STATUS_MESSAGES: Record<number, string> = {
   400: "Permintaan tidak valid.",
   401: "Tidak diizinkan.",
+  403: "Akses ditolak.",
   404: "Data tidak ditemukan.",
   409: "Permintaan bertentangan dengan data saat ini.",
   500: "Terjadi kesalahan pada server.",

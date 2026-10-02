@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { withRouteHandler, parseJson } from "@/lib/server/handler";
 import { UnauthorizedError, ValidationError } from "@/lib/server/errors";
 import { verifyJudgeSessionSchema } from "@/lib/validation";
+import { JUDGE_ROLES, requireSessionUser } from "@/lib/auth/session";
 
 export const POST = withRouteHandler(async (request) => {
+  await requireSessionUser(JUDGE_ROLES);
   let body: unknown;
   try {
     body = await parseJson(request);

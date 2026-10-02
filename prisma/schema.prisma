@@ -135,6 +135,7 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String?
+  authUserId   String?  @unique // Supabase Auth user id
   name         String
   role         Role     @default(OPERATOR)
   avatarUrl    String?

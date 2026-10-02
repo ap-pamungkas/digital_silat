@@ -16,12 +16,17 @@ import {
   Cast,
   Smartphone,
   ExternalLink,
+  LogOut,
   ShieldCheck,
   UserCheck,
   X,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { apiClient } from "@/lib/api/client";
+import { initialsOf, roleLabel } from "@/lib/auth/roles";
+import type { Role } from "@/lib/types";
 
 interface SidebarProps {
   className?: string;
@@ -29,6 +34,7 @@ interface SidebarProps {
   onCloseMobile?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  user?: { name: string; role: Role };
 }
 
 export function Sidebar({
@@ -37,8 +43,28 @@ export function Sidebar({
   onCloseMobile,
   isCollapsed = false,
   onToggleCollapse,
+  user,
 }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+
+  const displayName = user?.name ?? "Pengguna";
+  const displayRole = user ? roleLabel(user.role) : "Tidak diketahui";
+  const initials = initialsOf(displayName);
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    try {
+      await apiClient.auth.logout();
+    } catch {
+      // Sesi sudah tidak aktif di server, tetap arahkan ke halaman masuk.
+    } finally {
+      setIsLoggingOut(false);
+      router.replace("/login");
+      router.refresh();
+    }
+  }
 
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -187,28 +213,44 @@ export function Sidebar({
         <div className="mt-auto pt-3 border-t border-slate-200 dark:border-[#273649] shrink-0 space-y-2">
           {/* Profile Card */}
           <div
-            title="Agustinus (Administrator)"
             className={cn(
-              "flex items-center rounded-xl bg-slate-50 dark:bg-[#122033]/60 hover:bg-slate-100 dark:hover:bg-[#1c2b3e] transition-colors cursor-pointer border border-slate-200 dark:border-[#273649]",
+              "flex items-center rounded-xl bg-slate-50 dark:bg-[#122033]/60 border border-slate-200 dark:border-[#273649]",
               isCollapsed ? "lg:justify-center lg:p-2 p-2.5 gap-3" : "px-2.5 py-2 gap-3"
             )}
           >
             <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-[#273649] flex items-center justify-center border border-slate-300 dark:border-[#4f4633] text-amber-700 dark:text-[#ffd165] font-bold text-xs shrink-0">
-              AG
+              {initials}
             </div>
             {!isCollapsed && (
               <>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-900 dark:text-[#d5e3fd] truncate">Agustinus</p>
+                  <p className="text-xs font-semibold text-slate-900 dark:text-[#d5e3fd] truncate">
+                    {displayName}
+                  </p>
                   <p className="text-[10px] text-slate-500 dark:text-[#d3c5ac] truncate flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></span>
-                    Administrator
+                    {displayRole}
                   </p>
                 </div>
                 <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-[#ffd165] shrink-0" />
               </>
             )}
           </div>
+
+          {/* Logout Button */}
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title={isCollapsed ? "Keluar" : undefined}
+            className={cn(
+              "flex items-center rounded-lg text-xs font-medium text-slate-600 dark:text-[#d3c5ac] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-[#2a1a1a] transition-colors cursor-pointer w-full py-2 disabled:opacity-60 disabled:cursor-not-allowed",
+              isCollapsed ? "justify-center px-0" : "px-3 gap-2"
+            )}
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!isCollapsed && <span className="truncate">{isLoggingOut ? "Keluar..." : "Keluar"}</span>}
+          </button>
 
           {/* Desktop Toggle Button */}
           {onToggleCollapse && (

@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { deleteJudgeAction, updateJudgeAction } from "@/lib/data-service";
 import { withRouteHandler, parseBody, actionError } from "@/lib/server/handler";
 import { updateJudgeSchema } from "@/lib/validation";
+import { OPERATOR_ROLES, requireSessionUser } from "@/lib/auth/session";
 
 export const PATCH = withRouteHandler<{ id: string }, unknown>(async (request, { params }) => {
+  await requireSessionUser(OPERATOR_ROLES);
   const { id } = await params;
   const body = await parseBody(updateJudgeSchema, request);
 
@@ -15,6 +17,7 @@ export const PATCH = withRouteHandler<{ id: string }, unknown>(async (request, {
 });
 
 export const DELETE = withRouteHandler<{ id: string }, unknown>(async (_request, { params }) => {
+  await requireSessionUser(OPERATOR_ROLES);
   const { id } = await params;
   const result = await deleteJudgeAction(id);
 

@@ -8,6 +8,7 @@
  * assignable to `never` and the build fails.
  */
 
+import type { LoginDto } from "./auth";
 import type { CreateAthleteDto, UpdateAthleteDto } from "./athletes";
 import type { CreateJudgeDto, UpdateJudgeDto } from "./judges";
 import type { VerifyJudgeSessionDto } from "./judge-sessions";
@@ -28,6 +29,7 @@ import type {
   CreateMatchInput,
   CreatePenaltyInput,
   CreateTournamentInput,
+  LoginInput,
   DecideScoreEventInput,
   SubmitScoreEventInput,
   UpdateAthleteInput,
@@ -51,6 +53,7 @@ type ContractCheck<ClientDto, ServerInput> =
     : never;
 
 export const apiContracts: {
+  authLogin: ContractCheck<LoginDto, LoginInput>;
   athleteCreate: ContractCheck<CreateAthleteDto, CreateAthleteInput>;
   athleteUpdate: ContractCheck<UpdateAthleteDto, UpdateAthleteInput>;
   judgeCreate: ContractCheck<CreateJudgeDto, CreateJudgeInput>;
@@ -66,6 +69,7 @@ export const apiContracts: {
   tournamentCreate: ContractCheck<CreateTournamentDto, CreateTournamentInput>;
   tournamentUpdate: ContractCheck<UpdateTournamentDto, UpdateTournamentInput>;
 } = {
+  authLogin: true,
   athleteCreate: true,
   athleteUpdate: true,
   judgeCreate: true,

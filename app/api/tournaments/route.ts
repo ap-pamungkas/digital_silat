@@ -2,12 +2,14 @@ import { withRouteHandler, parseBody } from "@/lib/server/handler";
 import { getTournaments } from "@/lib/data-service";
 import { prisma } from "@/lib/prisma";
 import { createTournamentSchema } from "@/lib/validation";
+import { OPERATOR_ROLES, requireSessionUser } from "@/lib/auth/session";
 
 export const GET = withRouteHandler(async () => {
   return { data: await getTournaments() };
 });
 
 export const POST = withRouteHandler(async (request) => {
+  await requireSessionUser(OPERATOR_ROLES);
   const body = await parseBody(createTournamentSchema, request);
   const count = await prisma.tournament.count();
   const newCode = `TOUR-2026-${String(count + 1).padStart(3, "0")}`;

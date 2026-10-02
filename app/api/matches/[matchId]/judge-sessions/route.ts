@@ -2,8 +2,10 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { withRouteHandler } from "@/lib/server/handler";
 import { NotFoundError, ValidationError } from "@/lib/server/errors";
+import { OPERATOR_ROLES, requireSessionUser } from "@/lib/auth/session";
 
 export const GET = withRouteHandler<{ matchId: string }, unknown>(async (_request, { params }) => {
+  await requireSessionUser(OPERATOR_ROLES);
   const { matchId } = await params;
 
   const sessions = await prisma.judgeSession.findMany({
@@ -25,6 +27,7 @@ export const GET = withRouteHandler<{ matchId: string }, unknown>(async (_reques
 });
 
 export const POST = withRouteHandler<{ matchId: string }, unknown>(async (_request, { params }) => {
+  await requireSessionUser(OPERATOR_ROLES);
   const { matchId } = await params;
 
   const match = await prisma.match.findUnique({

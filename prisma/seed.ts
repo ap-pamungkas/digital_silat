@@ -39,7 +39,16 @@ async function main() {
     },
   });
 
-  console.log("👤 Created admin & operator users.");
+  await prisma.user.create({
+    data: {
+      email: "juri1@pagar.id",
+      name: "Juri 1",
+      role: "JUDGE",
+      isActive: true,
+    },
+  });
+
+  console.log("👤 Created admin, operator & judge users.");
 
   // 3. Create Tournament
   const tournament = await prisma.tournament.create({

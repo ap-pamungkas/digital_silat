@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ConflictError,
+  ForbiddenError,
   NotFoundError,
   UnauthorizedError,
   ValidationError,
@@ -12,6 +13,7 @@ describe("toStatus", () => {
   it("uses the status carried by the typed errors", () => {
     expect(toStatus(new ValidationError("bad"))).toBe(400);
     expect(toStatus(new UnauthorizedError("no"))).toBe(401);
+    expect(toStatus(new ForbiddenError("nope"))).toBe(403);
     expect(toStatus(new NotFoundError("gone"))).toBe(404);
     expect(toStatus(new ConflictError("clash"))).toBe(409);
   });
@@ -50,7 +52,10 @@ describe("toPublicMessage", () => {
 
   it("falls back to a generic message for unmapped statuses", () => {
     expect(toPublicMessage(new Error(""), 418)).toBe("Permintaan tidak valid.");
-    expect(toPublicMessage(new Error(""), 403)).toBe("Permintaan tidak valid.");
+  });
+
+  it("answers a forbidden failure with the access denied message", () => {
+    expect(toPublicMessage(new ForbiddenError(""), 403)).toBe("Akses ditolak.");
   });
 });
 
@@ -61,5 +66,12 @@ describe("error classes", () => {
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe("ValidationError");
     expect(error.status).toBe(400);
+  });
+
+  it("marks a role rejection as forbidden", () => {
+    const error = new ForbiddenError("Anda tidak memiliki akses untuk tindakan ini.");
+
+    expect(error.name).toBe("ForbiddenError");
+    expect(error.status).toBe(403);
   });
 });

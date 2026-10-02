@@ -119,10 +119,27 @@ describe("parseJson and parseBody", () => {
     });
   });
 
-  it("throws the zod error for a body that violates the schema", async () => {
-    await expect(parseBody(payloadSchema, jsonRequest({ name: "" }))).rejects.toBeInstanceOf(
-      z.ZodError
+  it("turns a schema violation into a 400 ValidationError with a friendly message", async () => {
+    const failure = await parseBody(payloadSchema, jsonRequest({ name: "" })).catch(
+      (error: unknown) => error
     );
+
+    expect(failure).toBeInstanceOf(ValidationError);
+    expect((failure as ValidationError).status).toBe(400);
+    expect((failure as ValidationError).message).not.toBe("");
+  });
+
+  it("never leaks a zod error to the client as a server failure", async () => {
+    const handler = withRouteHandler(async (request) => ({
+      data: await parseBody(payloadSchema, request),
+    }));
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await handler(jsonRequest({ name: "" }), context);
+
+    expect(response.status).toBe(400);
+    expect(logged).not.toHaveBeenCalled();
+    logged.mockRestore();
   });
 });
 

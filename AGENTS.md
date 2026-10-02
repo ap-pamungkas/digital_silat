@@ -1383,3 +1383,44 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+---
+
+## 55. AUTHENTICATION SETUP (SUPABASE)
+
+Supabase Auth owns the credentials. The `users` table stays the single source of
+truth for `role` and `isActive`, so a role can never be escalated through
+Supabase metadata.
+
+Environment (see `.env.example`):
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   # aman untuk browser
+SUPABASE_SERVICE_ROLE_KEY              # server side, hanya untuk skrip bootstrap
+```
+
+Create the Auth account for every active `public.users` row and link it back
+through `User.authUserId`:
+
+```bash
+AUTH_BOOTSTRAP_PASSWORD=<sandi> npx tsx scripts/bootstrap-auth-users.ts --dry-run
+AUTH_BOOTSTRAP_PASSWORD=<sandi> npx tsx scripts/bootstrap-auth-users.ts
+```
+
+The script never hardcodes and never prints a password. A per-user password can
+be supplied with `AUTH_BOOTSTRAP_PASSWORD_<EMAIL PREFIX>`, for example
+`AUTH_BOOTSTRAP_PASSWORD_ADMIN`.
+
+Layered access control:
+
+```text
+proxy.ts                     # refresh session cookie, guard protected pages
+app/(dashboard)/layout.tsx   # server guard: OPERATOR_ROLES
+app/judge/layout.tsx         # server guard: JUDGE_ROLES
+app/access-denied/page.tsx   # landing page for a valid session without permission
+lib/auth/session.ts          # requireSessionUser() for every mutating route
+```
+
+`/display/*` and `/overlay/*` stay public, and the read-only `GET` routes they
+depend on must stay readable without a session.

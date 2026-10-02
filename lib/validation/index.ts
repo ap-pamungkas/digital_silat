@@ -1,4 +1,5 @@
 export * from "./athlete";
+export * from "./auth";
 export * from "./judge";
 export * from "./judge-session";
 export * from "./match";

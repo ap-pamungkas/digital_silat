@@ -6,6 +6,7 @@ import {
   MatchStage as PrismaMatchStage,
   MatchStatus as PrismaMatchStatus,
   PenaltyType as PrismaPenaltyType,
+  Role as PrismaRole,
   ScoreEventStatus as PrismaScoreEventStatus,
   ScoringAction as PrismaScoringAction,
   TimerStatus as PrismaTimerStatus,
@@ -25,6 +26,9 @@ export type PenaltyType = `${PrismaPenaltyType}`;
 export type ScoreEventStatus = `${PrismaScoreEventStatus}`;
 export type ArenaStatus = `${PrismaArenaStatus}`;
 export type MatchWinReason = `${PrismaWinReason}`;
+export type Role = `${PrismaRole}`;
+
+export const ROLES: readonly Role[] = Object.values(PrismaRole);
 
 export const MATCH_STATUSES: readonly MatchStatus[] = Object.values(PrismaMatchStatus);
 export const MATCH_STAGES: readonly MatchStage[] = Object.values(PrismaMatchStage);

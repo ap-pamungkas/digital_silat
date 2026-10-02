@@ -5,9 +5,11 @@ import {
 } from "@/lib/data-service";
 import { withRouteHandler, parseBody, actionError } from "@/lib/server/handler";
 import { updateTournamentSchema } from "@/lib/validation";
+import { OPERATOR_ROLES, requireSessionUser } from "@/lib/auth/session";
 
 export const PATCH = withRouteHandler<{ tournamentId: string }, unknown>(
   async (request, { params }) => {
+    await requireSessionUser(OPERATOR_ROLES);
     const { tournamentId } = await params;
     const body = await parseBody(updateTournamentSchema, request);
 
@@ -27,6 +29,7 @@ export const PATCH = withRouteHandler<{ tournamentId: string }, unknown>(
 
 export const DELETE = withRouteHandler<{ tournamentId: string }, unknown>(
   async (_request, { params }) => {
+    await requireSessionUser(OPERATOR_ROLES);
     const { tournamentId } = await params;
     const result = await deleteTournamentAction(tournamentId);
 

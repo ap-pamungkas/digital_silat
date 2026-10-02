@@ -40,6 +40,8 @@ const FIELD_LABELS: Record<string, string> = {
   licenseNumber: "nomor lisensi",
   arena: "gelanggang",
   connectedJudgesCount: "jumlah juri terhubung",
+  email: "email",
+  password: "kata sandi",
 };
 
 export type Infer<T extends z.ZodType> = z.infer<T>;

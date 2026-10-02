@@ -1,4 +1,5 @@
 export * from "./http";
+export * from "./auth";
 export * from "./dashboard";
 export * from "./athletes";
 export * from "./tournaments";
@@ -7,6 +8,7 @@ export * from "./arenas";
 export * from "./judges";
 export * from "./judge-sessions";
 
+import { authApi } from "./auth";
 import { dashboardApi } from "./dashboard";
 import { athletesApi } from "./athletes";
 import { tournamentsApi } from "./tournaments";
@@ -16,6 +18,7 @@ import { judgesApi } from "./judges";
 import { judgeSessionsApi } from "./judge-sessions";
 
 export const apiClient = {
+  auth: authApi,
   dashboard: dashboardApi,
   athletes: athletesApi,
   tournaments: tournamentsApi,

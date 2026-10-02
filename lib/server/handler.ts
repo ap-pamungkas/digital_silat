@@ -43,7 +43,9 @@ export async function parseBody<TSchema extends z.ZodType>(
   request: Request
 ): Promise<z.infer<TSchema>> {
   const body = await parseJson(request);
-  return schema.parse(body);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) throw toValidationError(parsed.error);
+  return parsed.data as z.infer<TSchema>;
 }
 
 export function actionError(failure: { status: number; error: string }): Error {
