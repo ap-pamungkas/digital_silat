@@ -51,8 +51,11 @@ export function toStatus(error: unknown): number {
 }
 
 export function toPublicMessage(error: unknown, status: number): string {
-  if (status < 500) {
-    return error instanceof Error && error.message ? error.message : STATUS_MESSAGES[status];
+  if (status >= 500) {
+    return STATUS_MESSAGES[500];
   }
-  return STATUS_MESSAGES[500];
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return STATUS_MESSAGES[status] ?? STATUS_MESSAGES[400];
 }

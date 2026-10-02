@@ -73,6 +73,8 @@ function humanize(issue: z.core.$ZodIssue): string {
       return `${field} tidak dikenali.`;
     case "invalid_union":
       return `${field} tidak valid.`;
+    case "custom":
+      return issue.message;
     default:
       return `${field} tidak valid.`;
   }
