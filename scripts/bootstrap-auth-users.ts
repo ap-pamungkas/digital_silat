@@ -89,15 +89,15 @@ async function main() {
 
     const { data, error } = authUserId
       ? await supabase.auth.admin.updateUserById(authUserId, {
-          password,
-          email_confirm: true,
-        })
+        password,
+        email_confirm: true,
+      })
       : await supabase.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { name: appUser.name, role: appUser.role },
-        });
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { name: appUser.name, role: appUser.role },
+      });
 
     if (error) throw new Error(`Gagal menyimpan ${email}: ${error.message}`);
 
@@ -112,8 +112,7 @@ async function main() {
   }
 
   console.log(
-    `\nRingkasan: ${created} dibuat, ${linked} diperbarui, ${skipped} sudah ok${
-      DRY_RUN ? " (dry-run, tidak ada perubahan)" : ""
+    `\nRingkasan: ${created} dibuat, ${linked} diperbarui, ${skipped} sudah ok${DRY_RUN ? " (dry-run, tidak ada perubahan)" : ""
     }`
   );
 }
