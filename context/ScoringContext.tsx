@@ -75,7 +75,7 @@ export interface ScoringContextType {
   realtimeStatus: RealtimeStatus;
 }
 
-const ScoringContext = createContext<ScoringContextType | null>(null);
+export const ScoringContext = createContext<ScoringContextType | null>(null);
 
 const BROADCAST_CHANNEL_NAME = "digital_silat_scoring_bus";
 const CONSENSUS_WINDOW_MS = SCORE_CONSENSUS_WINDOW_MS;

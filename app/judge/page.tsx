@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useScoring } from "@/lib/scoring-store";
 import { useJudges } from "@/hooks";
 import { JudgeStatus } from "@/components/judge/JudgeStatus";
@@ -11,10 +12,11 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Input } from "@/components/ui/Input";
 import { Battery, ArrowRight, LayoutDashboard, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, VerifyJudgeSessionResultDto } from "@/lib/api/client";
 
 export default function JudgeHomePage() {
-  const { activeMatch, currentJudgeNumber, setCurrentJudgeNumber } = useScoring();
+  const router = useRouter();
+  const { activeMatch, setActiveMatchId, currentJudgeNumber, setCurrentJudgeNumber } = useScoring();
   const { judges } = useJudges();
   const currentJudge = judges.find((judge) =>
     judge.judgeNumber === currentJudgeNumber &&
@@ -22,25 +24,36 @@ export default function JudgeHomePage() {
   ) ?? judges.find((judge) => judge.judgeNumber === currentJudgeNumber);
 
   const [accessCode, setAccessCode] = React.useState("");
-  const [verifiedAccessKey, setVerifiedAccessKey] = React.useState<string | null>(null);
+  const [verifiedSession, setVerifiedSession] = React.useState<VerifyJudgeSessionResultDto | null>(null);
   const [isVerifyingCode, setIsVerifyingCode] = React.useState(false);
   const [verificationError, setVerificationError] = React.useState("");
-  const verificationKey = `${activeMatch.id}:${currentJudgeNumber}`;
-  const isCodeValid = verifiedAccessKey === verificationKey;
+
+  const isCodeValid = Boolean(verifiedSession);
 
   const handleValidateCode = async () => {
     setIsVerifyingCode(true);
     setVerificationError("");
     try {
-      await apiClient.judgeSessions.verify({
-        matchId: activeMatch.id,
+      const result = await apiClient.judgeSessions.verify({
+        matchId: activeMatch.id !== "NO_MATCH" ? activeMatch.id : undefined,
         judgeNumber: currentJudgeNumber,
         accessCode,
       });
-      sessionStorage.setItem(`judge-access:${activeMatch.id}:${currentJudgeNumber}`, accessCode);
-      setVerifiedAccessKey(verificationKey);
+
+      sessionStorage.setItem(`judge-access:${result.matchId}:${result.judgeNumber}`, accessCode);
+      setVerifiedSession(result);
+
+      if (result.judgeNumber !== currentJudgeNumber) {
+        setCurrentJudgeNumber(result.judgeNumber);
+      }
+      if (result.matchId !== activeMatch.id) {
+        setActiveMatchId(result.matchId);
+      }
+
+      // Automatically navigate to the scoring pad
+      router.push(`/judge/scoring/${result.matchId}?juri=${result.judgeNumber}`);
     } catch (error) {
-      setVerifiedAccessKey(null);
+      setVerifiedSession(null);
       setVerificationError(error instanceof Error ? error.message : "Kode akses tidak valid.");
     } finally {
       setIsVerifyingCode(false);
@@ -185,7 +198,7 @@ export default function JudgeHomePage() {
                     value={accessCode}
                     onChange={(e) => {
                       setAccessCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, ""));
-                      setVerifiedAccessKey(null);
+                      setVerifiedSession(null);
                       setVerificationError("");
                     }}
                     maxLength={16}

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api/client";
+import { ScoringContext } from "@/context/ScoringContext";
 
 /**
  * Client-side gate for judge device pages. The authoritative check lives in
@@ -17,6 +18,7 @@ export function JudgeSessionGate({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const scoring = React.useContext(ScoringContext);
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
@@ -29,6 +31,9 @@ export function JudgeSessionGate({
           router.replace("/judge");
           return;
         }
+        if (scoring && session.judgeNumber && session.judgeNumber !== scoring.currentJudgeNumber) {
+          scoring.setCurrentJudgeNumber(session.judgeNumber);
+        }
         setReady(true);
       })
       .catch(() => {
@@ -37,7 +42,7 @@ export function JudgeSessionGate({
     return () => {
       cancelled = true;
     };
-  }, [matchId, router]);
+  }, [matchId, router, scoring]);
 
   if (!ready) {
     return (

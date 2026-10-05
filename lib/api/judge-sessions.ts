@@ -7,9 +7,18 @@ export interface JudgeSessionAccess {
 }
 
 export interface VerifyJudgeSessionDto {
+  matchId?: string;
+  judgeNumber?: number;
+  accessCode: string;
+}
+
+export interface VerifyJudgeSessionResultDto {
+  success: boolean;
   matchId: string;
   judgeNumber: number;
-  accessCode: string;
+  judgeName: string;
+  matchNumber?: string;
+  arenaName?: string;
 }
 
 export interface JudgeDeviceSessionDto {
@@ -28,8 +37,8 @@ export const judgeSessionsApi = {
     return http.post<JudgeSessionAccess[]>(`/api/matches/${matchId}/judge-sessions`);
   },
 
-  verify: (data: VerifyJudgeSessionDto): Promise<{ success: boolean }> => {
-    return http.post<{ success: boolean }>("/api/judge-sessions/verify", data);
+  verify: (data: VerifyJudgeSessionDto): Promise<VerifyJudgeSessionResultDto> => {
+    return http.post<VerifyJudgeSessionResultDto>("/api/judge-sessions/verify", data);
   },
 
   me: (): Promise<JudgeDeviceSessionDto> => {

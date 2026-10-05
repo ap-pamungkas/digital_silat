@@ -34,6 +34,7 @@ export const POST = withRouteHandler<{ matchId: string }, unknown>(async (_reque
     where: { id: matchId },
     select: {
       id: true,
+      tournamentId: true,
       arena: {
         select: {
           judges: {
@@ -46,11 +47,25 @@ export const POST = withRouteHandler<{ matchId: string }, unknown>(async (_reque
   });
 
   if (!match) throw new NotFoundError("Pertandingan tidak ditemukan.");
-  if (match.arena.judges.length === 0) {
+  let judgesList = match.arena.judges;
+  if (judgesList.length === 0) {
+    judgesList = await prisma.judge.findMany({
+      where: { arena: { tournamentId: match.tournamentId } },
+      orderBy: { judgeNumber: "asc" },
+      select: { id: true, judgeNumber: true, name: true },
+    });
+  }
+  if (judgesList.length === 0) {
+    judgesList = await prisma.judge.findMany({
+      orderBy: { judgeNumber: "asc" },
+      select: { id: true, judgeNumber: true, name: true },
+    });
+  }
+  if (judgesList.length === 0) {
     throw new ValidationError("Belum ada juri terdaftar pada gelanggang pertandingan ini.");
   }
 
-  const generatedSessions = match.arena.judges.map((judge) => ({
+  const generatedSessions = judgesList.map((judge) => ({
     judge,
     accessCode: randomBytes(8).toString("hex").toUpperCase(),
   }));
