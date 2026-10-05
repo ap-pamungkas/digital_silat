@@ -45,6 +45,7 @@ function JudgeScoringContent() {
     applyPenalty,
     lastFeedback,
     realtimeStatus,
+    minJudgesRequired = 3,
   } = useScoring();
   const { judges, refreshJudges } = useJudges();
 
