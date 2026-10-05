@@ -106,7 +106,7 @@ export function ScoreEventList({
                       onClick={() => onVerify?.(evt.id)}
                       disabled={!hasJudgeQuorum}
                       className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
-                      title={hasJudgeQuorum ? "Sahkan & Tambahkan Poin ke Skor Atlet" : "Menunggu masukan dari juri kedua"}
+                      title={hasJudgeQuorum ? "Sahkan & Tambahkan Poin ke Skor Atlet" : "Menunggu konsensus juri lain"}
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       <span>Sahkan</span>
@@ -122,13 +122,18 @@ export function ScoreEventList({
                   </>
                 )}
                 {isVerified && (
-                  <button
-                    onClick={() => onReject?.(evt.id)}
-                    className="p-1.5 rounded-md bg-[#EF4444]/10 text-[#FCA5A5] hover:bg-[#EF4444]/20 border border-[#EF4444]/25 transition-colors cursor-pointer"
-                    title="Batalkan / Anulir Poin"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[11px] font-bold border border-emerald-500/20">
+                      Sah {evt.judgesAgreed && evt.judgesAgreed.length >= 2 ? `(${evt.judgesAgreed.length} Juri)` : ""}
+                    </span>
+                    <button
+                      onClick={() => onReject?.(evt.id)}
+                      className="p-1.5 rounded-md bg-[#EF4444]/10 text-[#FCA5A5] hover:bg-[#EF4444]/20 border border-[#EF4444]/25 transition-colors cursor-pointer"
+                      title="Batalkan / Anulir Poin"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 )}
                 {isRejected && (
                   <button
@@ -155,7 +160,7 @@ export function ScoreEventList({
             ) : (
               <span className="text-xs text-amber-400 font-medium animate-pulse flex items-center gap-1 shrink-0 ml-2">
                 <Clock className="w-3 h-3" />
-                Menunggu Putusan Petugas ({agreedJudgeCount}/2 Juri)
+                Menunggu Quorum ({agreedJudgeCount} Juri)
               </span>
             )}
           </div>

@@ -23,7 +23,8 @@ const state = vi.hoisted(() => ({
     blueScore: number;
   },
   judgeRow: null as null | { id: string },
-  recent: [] as Array<{ judgeNumber: number }>,
+  judgeCount: 3 as number,
+  recent: [] as Array<{ id?: string; judgeNumber: number; status?: string }>,
   target: null as null | {
     id: string;
     matchId: string;
@@ -59,10 +60,13 @@ const tx = {
       return {};
     },
   },
-  judge: { findUnique: async () => state.judgeRow },
+  judge: {
+    findUnique: async () => state.judgeRow,
+    count: async () => state.judgeCount,
+  },
   scoreEvent: {
-    findMany: async (args: { select?: Record<string, boolean> }) => {
-      if (args.select && "id" in args.select) return state.peers;
+    findMany: async (args: { select?: Record<string, boolean>; where?: { createdAt?: Record<string, unknown> } }) => {
+      if (args.where?.createdAt && "lte" in args.where.createdAt) return state.peers;
       return state.recent;
     },
     findFirst: async () => state.target,
@@ -122,6 +126,7 @@ function liveMatch() {
 beforeEach(() => {
   state.matchRow = liveMatch();
   state.judgeRow = { id: "J-1" };
+  state.judgeCount = 3;
   state.recent = [];
   state.target = null;
   state.peers = [];
@@ -208,8 +213,32 @@ describe("submitScoreEventAction", () => {
     );
   });
 
-  it("records the event and returns the quorum when a peer already voted", async () => {
-    state.recent = [{ judgeNumber: 2 }];
+  it("records the event as PENDING when quorum is not yet reached", async () => {
+    state.recent = [];
+
+    const result = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 1,
+    });
+
+    expect(result.agreedJudges).toEqual([1]);
+    expect(state.created).toHaveLength(1);
+    expect(state.created[0]?.data).toMatchObject({
+      status: "PENDING",
+      verified: false,
+    });
+    expect(state.matchUpdates).toHaveLength(0);
+    expect(state.audits).toHaveLength(1);
+    expect(state.audits[0]?.data).toMatchObject({ action: "SCORE_SUBMITTED" });
+    expect(result.snapshot.matchId).toBe("M-1");
+  });
+
+  it("auto-verifies the event and awards points when quorum is reached (2 of 3 judges)", async () => {
+    state.judgeCount = 3;
+    state.recent = [{ id: "EVT-PEER", judgeNumber: 2, status: "PENDING" }];
 
     const result = await submitScoreEventAction({
       matchId: "M-1",
@@ -221,9 +250,73 @@ describe("submitScoreEventAction", () => {
 
     expect(result.agreedJudges).toEqual([1, 2]);
     expect(state.created).toHaveLength(1);
+    expect(state.created[0]?.data).toMatchObject({
+      status: "VERIFIED",
+      verified: true,
+    });
+    expect(state.eventUpdates).toHaveLength(1);
+    expect(state.matchUpdates).toHaveLength(1);
+    expect(state.matchUpdates[0]?.data).toEqual({ redScore: 1 });
     expect(state.audits).toHaveLength(1);
+    expect(state.audits[0]?.data).toMatchObject({ action: "SCORE_AUTO_VERIFIED" });
+  });
+
+  it("requires 3 judges when arena has 5 judges", async () => {
+    state.judgeCount = 5;
+    // 1 peer exists -> total 2 judges -> still PENDING (needs 3)
+    state.recent = [{ id: "EVT-1", judgeNumber: 2, status: "PENDING" }];
+
+    const result1 = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 1,
+    });
+
+    expect(result1.agreedJudges).toEqual([1, 2]);
+    expect(state.created[0]?.data).toMatchObject({ status: "PENDING", verified: false });
+    expect(state.matchUpdates).toHaveLength(0);
+
+    // 2 peers exist -> judge 3 votes -> total 3 judges -> QUORUM AUTO-VERIFIED!
+    state.recent = [
+      { id: "EVT-1", judgeNumber: 1, status: "PENDING" },
+      { id: "EVT-2", judgeNumber: 2, status: "PENDING" },
+    ];
+    const result2 = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 3,
+    });
+
+    expect(result2.agreedJudges).toEqual([1, 2, 3]);
+    expect(state.created[1]?.data).toMatchObject({ status: "VERIFIED", verified: true });
+    expect(state.matchUpdates).toHaveLength(1);
+    expect(state.matchUpdates[0]?.data).toEqual({ redScore: 1 });
+  });
+
+  it("does not add duplicate points when another judge agrees on an already-verified event", async () => {
+    state.judgeCount = 5;
+    state.recent = [
+      { id: "EVT-1", judgeNumber: 1, status: "VERIFIED" },
+      { id: "EVT-2", judgeNumber: 2, status: "VERIFIED" },
+      { id: "EVT-3", judgeNumber: 3, status: "VERIFIED" },
+    ];
+
+    const result = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 4,
+    });
+
+    expect(result.agreedJudges).toEqual([1, 2, 3, 4]);
+    expect(state.created[0]?.data).toMatchObject({ status: "VERIFIED", verified: true });
+    expect(state.matchUpdates).toHaveLength(0);
     expect(state.audits[0]?.data).toMatchObject({ action: "SCORE_SUBMITTED" });
-    expect(result.snapshot.matchId).toBe("M-1");
   });
 
   it("is idempotent when the same judge votes twice in the window", async () => {

@@ -223,8 +223,8 @@ function JudgeScoringContent() {
                 {lastFeedback.status === "VERIFIED"
                   ? `SKOR SAH! (+${lastFeedback.points} ${lastFeedback.corner === "RED" ? "MERAH" : "BIRU"})`
                   : lastFeedback.status === "PENDING"
-                  ? `MENUNGGU VALIDASI JURI LAIN (0/2)`
-                  : `SKOR GUGUR (TIDAK MENCAPAI 2 JURI)`}
+                  ? `MENUNGGU VALIDASI JURI LAIN (${lastFeedback.agreedJudges.length}/${minJudgesRequired})`
+                  : `SKOR GUGUR (TIDAK MENCAPAI ${minJudgesRequired} JURI)`}
               </div>
               <div className="text-[11px] opacity-90 truncate">
                 {lastFeedback.action.replace(/_/g, " ")} • Juri Sepakat:{" "}
@@ -236,7 +236,7 @@ function JudgeScoringContent() {
           <div className="flex items-center gap-1 shrink-0 ml-2">
             <Users className="w-4 h-4 opacity-75" />
             <span className="font-mono font-bold text-xs">
-              {lastFeedback.agreedJudges.length}/2
+              {lastFeedback.agreedJudges.length}/{minJudgesRequired}
             </span>
           </div>
         </div>

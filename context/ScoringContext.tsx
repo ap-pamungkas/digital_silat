@@ -28,6 +28,10 @@ import {
   type RealtimeStatus,
 } from "@/lib/realtime/events";
 import { publishMatchEvent } from "@/lib/realtime/supabase-client";
+import {
+  SCORE_CONSENSUS_WINDOW_MS,
+  minJudgesRequiredForTotal,
+} from "@/lib/scoring/rules";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 export interface LastFeedbackState {
@@ -74,8 +78,7 @@ export interface ScoringContextType {
 const ScoringContext = createContext<ScoringContextType | null>(null);
 
 const BROADCAST_CHANNEL_NAME = "digital_silat_scoring_bus";
-const CONSENSUS_WINDOW_MS = 2000;
-const MIN_JUDGES_REQUIRED = 2;
+const CONSENSUS_WINDOW_MS = SCORE_CONSENSUS_WINDOW_MS;
 /**
  * Safety poll. Realtime delivers the snapshot immediately, this interval only
  * repairs a missed broadcast or a client that joined before the write landed.
@@ -346,12 +349,19 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
       });
       applyScoringSnapshot(result.snapshot);
       publishScoringSnapshot(result.snapshot);
+      const isVerified = result.snapshot.events.some(
+        (e) =>
+          e.corner === corner &&
+          e.action === action &&
+          e.status === "VERIFIED" &&
+          (e.judgesAgreed?.includes(judgeNum) || e.judgeNumber === judgeNum)
+      );
       setLastFeedback({
         corner,
         action,
         points,
         timestamp: Date.now(),
-        status: "PENDING",
+        status: isVerified ? "VERIFIED" : "PENDING",
         agreedJudges: result.agreedJudges,
       });
     },
@@ -497,7 +507,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         refreshMatches,
         isLoading,
         consensusWindowMs: CONSENSUS_WINDOW_MS,
-        minJudgesRequired: MIN_JUDGES_REQUIRED,
+        minJudgesRequired: minJudgesRequiredForTotal(5),
         realtimeStatus,
       }}
     >

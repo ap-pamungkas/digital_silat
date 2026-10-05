@@ -3,7 +3,7 @@ import { Corner, PenaltyRecord, PenaltyType, ScoringAction, ScoreEvent } from "@
 import {
   agreedJudgeNumbers,
   buildScoreEventGroups,
-  MIN_JUDGES_REQUIRED,
+  minJudgesRequiredForTotal,
   SCORE_CONSENSUS_WINDOW_MS,
   scorePointsForAction,
 } from "@/lib/scoring/rules";
@@ -122,6 +122,11 @@ export async function submitScoreEventAction(input: {
     });
     if (!judge) throw new ValidationError("Juri belum terdaftar pada gelanggang pertandingan ini.");
 
+    const totalArenaJudges = await transaction.judge.count({
+      where: { arenaId: match.arenaId },
+    });
+    const minRequired = minJudgesRequiredForTotal(totalArenaJudges);
+
     const now = new Date();
     const remainingSeconds = remainingMatchSeconds(
       match.timerStatus,
@@ -136,13 +141,106 @@ export async function submitScoreEventAction(input: {
         round: match.currentRound,
         corner: input.corner,
         action: input.action,
-        status: "PENDING",
+        status: { in: ["PENDING", "VERIFIED"] },
         createdAt: { gte: new Date(now.getTime() - SCORE_CONSENSUS_WINDOW_MS) },
       },
-      select: { judgeNumber: true },
+      select: { id: true, judgeNumber: true, status: true },
     });
-    const agreedJudges = [...new Set([...recentEvents.map((item) => item.judgeNumber), input.judgeNumber])].sort();
+    const agreedJudges = [...new Set([...recentEvents.map((item) => item.judgeNumber), input.judgeNumber])].sort((a, b) => a - b);
     if (recentEvents.some((event) => event.judgeNumber === input.judgeNumber)) {
+      return { judgeNumbers: agreedJudges };
+    }
+
+    const alreadyVerified = recentEvents.some((event) => event.status === "VERIFIED");
+    const quorumReached = agreedJudges.length >= minRequired;
+
+    if (alreadyVerified) {
+      const event = await transaction.scoreEvent.create({
+        data: {
+          matchId: match.id,
+          judgeId: judge.id,
+          judgeNumber: input.judgeNumber,
+          corner: input.corner,
+          action: input.action,
+          points: input.points,
+          round: match.currentRound,
+          matchTime,
+          matchTimestampSeconds: remainingSeconds,
+          verified: true,
+          status: "VERIFIED",
+        },
+        select: { id: true },
+      });
+      await transaction.auditLog.create({
+        data: {
+          matchId: match.id,
+          action: "SCORE_SUBMITTED",
+          details: JSON.stringify({
+            eventId: event.id,
+            judgeNumber: input.judgeNumber,
+            corner: input.corner,
+            points: input.points,
+            joinedVerifiedQuorum: true,
+            agreedJudges,
+          }),
+        },
+      });
+      return { judgeNumbers: agreedJudges };
+    }
+
+    if (quorumReached) {
+      const event = await transaction.scoreEvent.create({
+        data: {
+          matchId: match.id,
+          judgeId: judge.id,
+          judgeNumber: input.judgeNumber,
+          corner: input.corner,
+          action: input.action,
+          points: input.points,
+          round: match.currentRound,
+          matchTime,
+          matchTimestampSeconds: remainingSeconds,
+          verified: true,
+          status: "VERIFIED",
+        },
+        select: { id: true },
+      });
+
+      if (recentEvents.length > 0) {
+        await transaction.scoreEvent.updateMany({
+          where: { id: { in: recentEvents.map((e) => e.id) } },
+          data: { status: "VERIFIED", verified: true },
+        });
+      }
+
+      const matchScore = await transaction.match.findUnique({
+        where: { id: match.id },
+        select: { redScore: true, blueScore: true },
+      });
+      if (matchScore) {
+        await transaction.match.update({
+          where: { id: match.id },
+          data: input.corner === "RED"
+            ? { redScore: matchScore.redScore + input.points }
+            : { blueScore: matchScore.blueScore + input.points },
+        });
+      }
+
+      await transaction.auditLog.create({
+        data: {
+          matchId: match.id,
+          action: "SCORE_AUTO_VERIFIED",
+          details: JSON.stringify({
+            eventId: event.id,
+            judgeNumbers: agreedJudges,
+            corner: input.corner,
+            action: input.action,
+            points: input.points,
+            quorumRequired: minRequired,
+          }),
+        },
+      });
+
       return { judgeNumbers: agreedJudges };
     }
 
@@ -166,7 +264,14 @@ export async function submitScoreEventAction(input: {
       data: {
         matchId: match.id,
         action: "SCORE_SUBMITTED",
-        details: JSON.stringify({ eventId: event.id, judgeNumber: input.judgeNumber, corner: input.corner, points: input.points }),
+        details: JSON.stringify({
+          eventId: event.id,
+          judgeNumber: input.judgeNumber,
+          corner: input.corner,
+          points: input.points,
+          agreedJudges,
+          quorumRequired: minRequired,
+        }),
       },
     });
 
@@ -190,6 +295,17 @@ export async function decideScoreEventAction(input: {
     });
     if (!target) throw new NotFoundError("Event skor tidak ditemukan.");
 
+    const match = await transaction.match.findUnique({
+      where: { id: input.matchId },
+      select: { arenaId: true, redScore: true, blueScore: true },
+    });
+    if (!match) throw new NotFoundError("Partai pertandingan tidak ditemukan.");
+
+    const totalArenaJudges = await transaction.judge.count({
+      where: { arenaId: match.arenaId },
+    });
+    const minRequired = minJudgesRequiredForTotal(totalArenaJudges);
+
     const peerEvents = await transaction.scoreEvent.findMany({
       where: {
         matchId: target.matchId,
@@ -209,8 +325,8 @@ export async function decideScoreEventAction(input: {
       : [...peerEvents, { id: target.id, judgeNumber: target.judgeNumber }];
     const agreedJudges = [...new Set(group.map((event) => event.judgeNumber))];
 
-    if (input.decision === "VERIFY" && target.status === "PENDING" && agreedJudges.length < MIN_JUDGES_REQUIRED) {
-      throw new ConflictError(`Dibutuhkan minimal ${MIN_JUDGES_REQUIRED} juri untuk mengesahkan poin.`);
+    if (input.decision === "VERIFY" && target.status === "PENDING" && agreedJudges.length < minRequired) {
+      throw new ConflictError(`Dibutuhkan minimal ${minRequired} juri untuk mengesahkan poin.`);
     }
 
     const nextStatus = input.decision === "VERIFY" ? "VERIFIED" : "REJECTED";
@@ -223,11 +339,6 @@ export async function decideScoreEventAction(input: {
     const applyPoints = input.decision === "VERIFY" && target.status !== "VERIFIED";
     const removePoints = input.decision === "REJECT" && target.status === "VERIFIED";
     if (applyPoints || removePoints) {
-      const match = await transaction.match.findUnique({
-        where: { id: input.matchId },
-        select: { redScore: true, blueScore: true },
-      });
-      if (!match) throw new NotFoundError("Partai pertandingan tidak ditemukan.");
       const delta = applyPoints ? target.points : -target.points;
       await transaction.match.update({
         where: { id: input.matchId },

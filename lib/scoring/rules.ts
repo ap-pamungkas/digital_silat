@@ -8,9 +8,16 @@ import {
   ScoringAction,
 } from "@/lib/types";
 
-export const SCORE_CONSENSUS_WINDOW_MS = 2000;
+export const SCORE_CONSENSUS_WINDOW_MS = 1500;
 
 export const MIN_JUDGES_REQUIRED = 2;
+
+export function minJudgesRequiredForTotal(totalJudges: number): number {
+  if (totalJudges <= 3) {
+    return 2;
+  }
+  return 3;
+}
 
 export const SCORE_POINTS: Partial<Record<ScoringAction, number>> = {
   PUKULAN: 1,

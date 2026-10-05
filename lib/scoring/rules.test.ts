@@ -9,6 +9,7 @@ import {
   isMatchStage,
   isMatchTimerAction,
   isScoringAction,
+  minJudgesRequiredForTotal,
   scorePointsForAction,
   toMatchStage,
 } from "@/lib/scoring/rules";
@@ -206,5 +207,18 @@ describe("agreedJudgeNumbers", () => {
     expect(agreedJudgeNumbers(groupByEventId.get("EVT-1"), []).length).toBeLessThan(
       MIN_JUDGES_REQUIRED
     );
+  });
+});
+
+describe("minJudgesRequiredForTotal", () => {
+  it("requires 2 judges when total judges is 3 or less", () => {
+    expect(minJudgesRequiredForTotal(1)).toBe(2);
+    expect(minJudgesRequiredForTotal(2)).toBe(2);
+    expect(minJudgesRequiredForTotal(3)).toBe(2);
+  });
+
+  it("requires 3 judges when total judges is greater than 3 (4 or 5 judges)", () => {
+    expect(minJudgesRequiredForTotal(4)).toBe(3);
+    expect(minJudgesRequiredForTotal(5)).toBe(3);
   });
 });

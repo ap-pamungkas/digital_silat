@@ -242,12 +242,11 @@ export default function JudgesPage() {
         <ShieldCheck className="w-6 h-6 text-amber-600 dark:text-[#ffd165] shrink-0 mt-0.5" />
         <div className="space-y-1.5 text-sm">
           <h4 className="font-bold text-slate-900 dark:text-white leading-5">
-            Protokol Penilaian 5 Wasit Juri Persilat
+            Protokol Penilaian Wasit Juri Persilat
           </h4>
           <p className="text-slate-600 dark:text-[#94A3B8] leading-relaxed text-xs sm:text-sm">
-            Setiap penilaian sudut merah atau biru yang ditekan oleh minimal 3 dari 5 juri dalam rentang waktu 1 detik
-            akan secara otomatis divalidasi ke dalam skor resmi pertandingan. Perangkat juri beroperasi dengan enkripsi
-            lokal dan sinkronisasi latensi rendah.
+            Setiap penilaian sudut merah atau biru yang ditekan oleh juri quorum (minimal 2 juri jika &le; 3 juri aktif, atau minimal 3 juri jika 4–5 juri aktif) dalam rentang waktu 1,5 detik
+            akan secara otomatis divalidasi ke dalam skor resmi pertandingan. Operator gelanggang dapat memantau dan memiliki wewenang untuk menganulir/membatalkan poin bila terjadi kesalahan.
           </p>
         </div>
       </div>

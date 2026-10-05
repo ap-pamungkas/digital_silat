@@ -1339,7 +1339,7 @@ When an AI coding/design agent works on this project:
 4. Do not invent colors.
 5. Do not invent typography.
 6. Do not introduce unrelated UI patterns.
-7. Do not modify unrelated screens.
+7. Do not modify unrelated screens.x
 8. Do not remove existing functionality.
 9. Keep mobile and desktop behavior intentional.
 10. Keep scoring interactions extremely fast.
