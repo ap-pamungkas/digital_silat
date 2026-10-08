@@ -16,7 +16,7 @@ import { apiClient, VerifyJudgeSessionResultDto } from "@/lib/api/client";
 
 export default function JudgeHomePage() {
   const router = useRouter();
-  const { activeMatch, setActiveMatchId, currentJudgeNumber, setCurrentJudgeNumber } = useScoring();
+  const { matches, activeMatch, setActiveMatchId, currentJudgeNumber, setCurrentJudgeNumber } = useScoring();
   const { judges } = useJudges();
   const currentJudge = judges.find((judge) =>
     judge.judgeNumber === currentJudgeNumber &&

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getJudges, JUDGE_HEARTBEAT_TIMEOUT_MS } from "./judges";
+import { getJudges } from "./judges";
 
 const state = vi.hoisted(() => ({
   judges: [] as Array<{

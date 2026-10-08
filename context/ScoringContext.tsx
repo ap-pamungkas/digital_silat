@@ -95,6 +95,7 @@ interface BroadcastMessage {
 
 export function ScoringProvider({ children }: { children: React.ReactNode }) {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeMatchId, _setActiveMatchId] = useState<string>("");
   const [currentJudgeNumber, _setCurrentJudgeNumber] = useState<number>(1);
 
@@ -166,7 +167,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("Error fetching matches:", err);
     }
-  }, []);
+  }, [setActiveMatchId]);
 
   // Initial load
   useEffect(() => {
@@ -191,7 +192,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [setActiveMatchId]);
 
   const activeMatch =
     matches.find((m) => m.id === activeMatchId) || matches[0] || DEFAULT_MATCH;
