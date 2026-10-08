@@ -46,6 +46,8 @@ export default function OperatorLiveScoringPage() {
     verifyEvent,
     rejectEvent,
     realtimeStatus,
+    isLoading,
+    refreshMatches,
   } = useScoring();
 
   const [isPenaltyOpen, setIsPenaltyOpen] = React.useState(false);
@@ -61,10 +63,53 @@ export default function OperatorLiveScoringPage() {
 
   const current = matches.find((match) => match.id === matchId);
 
+  if (isLoading && !current) {
+    return (
+      <div className="space-y-6 animate-pulse" role="status" aria-label="Memuat data pertandingan">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-4 w-48 bg-slate-200 dark:bg-[#1E293B] rounded" />
+            <div className="h-8 w-72 bg-slate-200 dark:bg-[#1E293B] rounded-lg" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-10 w-28 bg-slate-200 dark:bg-[#1E293B] rounded-lg" />
+            <div className="h-10 w-28 bg-slate-200 dark:bg-[#1E293B] rounded-lg" />
+          </div>
+        </div>
+        <div className="h-56 rounded-xl bg-slate-100 dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#1E293B]" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-96 rounded-xl bg-slate-100 dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#1E293B]" />
+          <div className="h-96 rounded-xl bg-slate-100 dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#1E293B]" />
+        </div>
+        <span className="sr-only">Memuat data pertandingan...</span>
+      </div>
+    );
+  }
+
   if (!current) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-10 text-center text-sm text-slate-500 dark:text-[#94A3B8]">
-        Pertandingan tidak ditemukan di database.
+      <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] p-10 text-center space-y-4">
+        <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-[#1E293B] flex items-center justify-center text-slate-400">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+            Pertandingan Tidak Ditemukan
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-[#94A3B8] max-w-md mx-auto">
+            ID pertandingan <span className="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">{matchId}</span> tidak ditemukan dalam database atau jadwal aktif.
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button variant="outline" size="sm" onClick={() => void refreshMatches()}>
+            Muat Ulang Data
+          </Button>
+          <Link href="/matches">
+            <Button variant="primary" size="sm">
+              Ke Daftar Pertandingan
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -353,15 +398,15 @@ export default function OperatorLiveScoringPage() {
                 variant={current.timerStatus === "RUNNING" ? "warning" : "success"}
                 onClick={() => void handleToggleTimer()}
                 disabled={current.status === "FINISHED" || (current.timerStatus !== "RUNNING" && current.timeRemainingSeconds === 0)}
-                className="h-12"
+                className="h-12 text-xs sm:text-sm font-bold min-h-[44px]"
               >
                 {current.timerStatus === "RUNNING" ? (
                   <>
-                    <Pause className="w-4 h-4 mr-2" /> Jeda Timer
+                    <Pause className="w-4 h-4 mr-1.5 shrink-0" /> <span className="truncate">Jeda Timer</span>
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4 mr-2 fill-current" /> {current.timeRemainingSeconds === 0 ? "Waktu Habis" : current.status === "FINISHED" ? "Partai Selesai" : "Mulai Timer"}
+                    <Play className="w-4 h-4 mr-1.5 fill-current shrink-0" /> <span className="truncate">{current.timeRemainingSeconds === 0 ? "Waktu Habis" : current.status === "FINISHED" ? "Partai Selesai" : "Mulai Timer"}</span>
                   </>
                 )}
               </Button>
@@ -370,13 +415,18 @@ export default function OperatorLiveScoringPage() {
                 variant="outline"
                 onClick={() => void handleResetTimer()}
                 disabled={current.status === "FINISHED"}
-                className="h-12"
+                className="h-12 text-xs sm:text-sm font-bold min-h-[44px]"
               >
-                <RotateCcw className="w-4 h-4 mr-2" /> Reset Timer
+                <RotateCcw className="w-4 h-4 mr-1.5 shrink-0" /> <span className="truncate">Reset Timer</span>
               </Button>
 
-              <Button variant="outline" onClick={() => void handleNextRound()} disabled={current.status === "FINISHED" || current.currentRound >= current.totalRounds} className="h-12">
-                <FastForward className="w-4 h-4 mr-2" /> Babak Berikut
+              <Button
+                variant="outline"
+                onClick={() => void handleNextRound()}
+                disabled={current.status === "FINISHED" || current.currentRound >= current.totalRounds}
+                className="h-12 text-xs sm:text-sm font-bold min-h-[44px]"
+              >
+                <FastForward className="w-4 h-4 mr-1.5 shrink-0" /> <span className="truncate">Babak Berikut</span>
               </Button>
 
               <Button
@@ -386,9 +436,9 @@ export default function OperatorLiveScoringPage() {
                   setIsEndMatchConfirmOpen(true);
                 }}
                 disabled={current.status === "FINISHED"}
-                className="h-12"
+                className="h-12 text-xs sm:text-sm font-bold min-h-[44px]"
               >
-                <Flag className="w-4 h-4 mr-2" /> Selesaikan Partai
+                <Flag className="w-4 h-4 mr-1.5 shrink-0" /> <span className="truncate">Selesai Partai</span>
               </Button>
             </div>
 
@@ -509,6 +559,7 @@ export default function OperatorLiveScoringPage() {
               isOperator={true}
               onVerify={handleVerifyEvent}
               onReject={handleRejectEvent}
+              minJudgesRequired={current.minJudgesRequired || 3}
             />
           </div>
 

@@ -117,8 +117,8 @@ function liveMatch() {
     status: "IN_PROGRESS",
     currentRound: 1,
     timeRemainingSeconds: 120,
-    timerStatus: "READY",
-    timerLastStartedAt: null,
+    timerStatus: "RUNNING",
+    timerLastStartedAt: new Date(),
     redScore: 0,
     blueScore: 0,
   };
@@ -183,6 +183,69 @@ describe("submitScoreEventAction", () => {
     expect(state.created).toHaveLength(0);
   });
 
+  it("rejects scoring when match timer is not RUNNING (PAUSED or READY)", async () => {
+    if (state.matchRow) state.matchRow.timerStatus = "PAUSED";
+
+    const error = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 1,
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ConflictError);
+    expect((error as Error).message).toBe(
+      "Pertandingan sedang dijeda. Masukan nilai hanya diperbolehkan saat ronde berlangsung."
+    );
+    expect(state.created).toHaveLength(0);
+  });
+
+  it("rejects scoring when round time has expired (00:00 / suara terlambat)", async () => {
+    if (state.matchRow) {
+      state.matchRow.timerStatus = "RUNNING";
+      state.matchRow.timeRemainingSeconds = 0;
+      state.matchRow.timerLastStartedAt = new Date();
+    }
+
+    const error = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 1,
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ConflictError);
+    expect((error as Error).message).toBe(
+      "Waktu babak telah habis. Masukan nilai tidak dapat diterima setelah waktu habis."
+    );
+    expect(state.created).toHaveLength(0);
+  });
+
+  it("accepts scoring deterministically right before buzzer (00:01 boundary)", async () => {
+    if (state.matchRow) {
+      state.matchRow.timerStatus = "RUNNING";
+      state.matchRow.timeRemainingSeconds = 1;
+      state.matchRow.timerLastStartedAt = new Date();
+    }
+
+    const result = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 1,
+    });
+
+    expect(result.agreedJudges).toEqual([1]);
+    expect(state.created).toHaveLength(1);
+    expect(state.created[0]?.data).toMatchObject({
+      matchTime: "00:01",
+      matchTimestampSeconds: 1,
+    });
+  });
+
   it("rejects an unknown match", async () => {
     state.matchRow = null;
 
@@ -214,7 +277,8 @@ describe("submitScoreEventAction", () => {
     );
   });
 
-  it("records the event as PENDING when quorum is not yet reached", async () => {
+  it("records the event as PENDING when quorum is 1/3 (not yet reached)", async () => {
+    state.judgeCount = 3;
     state.recent = [];
 
     const result = await submitScoreEventAction({
@@ -237,7 +301,7 @@ describe("submitScoreEventAction", () => {
     expect(result.snapshot.matchId).toBe("M-1");
   });
 
-  it("auto-verifies the event and awards points when quorum is reached (2 of 3 judges)", async () => {
+  it("auto-verifies the event and awards points when quorum reaches 2/3 judges", async () => {
     state.judgeCount = 3;
     state.recent = [{ id: "EVT-PEER", judgeNumber: 2, status: "PENDING" }];
 
@@ -262,9 +326,9 @@ describe("submitScoreEventAction", () => {
     expect(state.audits[0]?.data).toMatchObject({ action: "SCORE_AUTO_VERIFIED" });
   });
 
-  it("requires 3 judges when arena has 5 judges", async () => {
+  it("requires 3 judges when arena has 5 judges (2/5 is PENDING, 3/5 is VERIFIED)", async () => {
     state.judgeCount = 5;
-    // 1 peer exists -> total 2 judges -> still PENDING (needs 3)
+    // 1 peer exists -> total 2 judges -> still PENDING (needs 3 for 5 judges)
     state.recent = [{ id: "EVT-1", judgeNumber: 2, status: "PENDING" }];
 
     const result1 = await submitScoreEventAction({
@@ -279,7 +343,7 @@ describe("submitScoreEventAction", () => {
     expect(state.created[0]?.data).toMatchObject({ status: "PENDING", verified: false });
     expect(state.matchUpdates).toHaveLength(0);
 
-    // 2 peers exist -> judge 3 votes -> total 3 judges -> QUORUM AUTO-VERIFIED!
+    // 2 peers exist -> judge 3 votes -> total 3 judges -> QUORUM 3/5 AUTO-VERIFIED!
     state.recent = [
       { id: "EVT-1", judgeNumber: 1, status: "PENDING" },
       { id: "EVT-2", judgeNumber: 2, status: "PENDING" },
@@ -322,6 +386,35 @@ describe("submitScoreEventAction", () => {
       action: "SCORE_AUTO_VERIFIED",
       details: expect.stringContaining('"quorumRequired":3'),
     });
+  });
+
+  it("handles scoring submissions from distinct judge sessions separately without cross-talk", async () => {
+    state.judgeCount = 3;
+    state.recent = [];
+
+    // Session 1: Judge 1 submits PUKULAN
+    const j1Vote = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "BLUE",
+      action: "TENDANGAN",
+      points: 2,
+      judgeNumber: 1,
+    });
+    expect(j1Vote.agreedJudges).toEqual([1]);
+    expect(state.created[0]?.data).toMatchObject({ judgeNumber: 1, status: "PENDING" });
+
+    // Session 2: Judge 2 submits the same attack from their own tablet
+    state.recent = [{ id: "EVT-J1", judgeNumber: 1, status: "PENDING" }];
+    const j2Vote = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "BLUE",
+      action: "TENDANGAN",
+      points: 2,
+      judgeNumber: 2,
+    });
+    expect(j2Vote.agreedJudges).toEqual([1, 2]);
+    expect(state.created[1]?.data).toMatchObject({ judgeNumber: 2, status: "VERIFIED" });
+    expect(state.matchUpdates[0]?.data).toEqual({ blueScore: 2 });
   });
 
   it("does not add duplicate points when another judge agrees on an already-verified event", async () => {

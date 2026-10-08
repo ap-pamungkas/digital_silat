@@ -6,22 +6,67 @@ import { ScoringProvider, useScoring } from "@/lib/scoring-store";
 import { formatTime, cn } from "@/lib/utils";
 import { Trophy, ShieldCheck } from "lucide-react";
 
-function DisplayScoreboardContent() {
+function isArenaMatch(item: { arenaId?: string; arenaDbId?: string; arenaName?: string }, param: string): boolean {
+  if (!param) return false;
+  const p = param.trim().toLowerCase();
+  if (item.arenaId && item.arenaId.toLowerCase() === p) return true;
+  if (item.arenaDbId && item.arenaDbId.toLowerCase() === p) return true;
+  if (item.arenaName && item.arenaName.toLowerCase() === p) return true;
+  const cleanParam = p.replace(/^arena-0*/, "").replace(/^gelanggang\s*/, "");
+  const cleanArenaId = (item.arenaId || "").toLowerCase().replace(/^arena-0*/, "");
+  const cleanArenaName = (item.arenaName || "").toLowerCase().replace(/^gelanggang\s*/, "");
+  if (cleanParam && (cleanParam === cleanArenaId || cleanParam === cleanArenaName)) return true;
+  return false;
+}
+
+export function DisplayScoreboardContent() {
   const params = useParams();
   const arenaId = typeof params?.arenaId === "string" ? params.arenaId : "";
-  const { matches } = useScoring();
+  const { matches, isLoading, setActiveMatchId, activeMatch } = useScoring();
 
-  const match =
-    matches.find((item) => item.arenaId === arenaId && item.status === "LIVE") ||
-    matches.find((item) => item.arenaId === arenaId && ["READY", "SCHEDULED"].includes(item.status)) ||
-    matches.filter((item) => item.arenaId === arenaId).at(-1);
+  const match = React.useMemo(() => {
+    if (!matches || matches.length === 0) return null;
+    return (
+      matches.find((item) => isArenaMatch(item, arenaId) && item.status === "LIVE") ||
+      matches.find((item) => isArenaMatch(item, arenaId) && item.status === "PAUSED") ||
+      matches.find((item) => isArenaMatch(item, arenaId) && ["READY", "SCHEDULED"].includes(item.status)) ||
+      matches.filter((item) => isArenaMatch(item, arenaId) && item.status === "FINISHED").at(-1) ||
+      matches.filter((item) => isArenaMatch(item, arenaId)).at(-1) ||
+      null
+    );
+  }, [matches, arenaId]);
+
+  React.useEffect(() => {
+    if (match && match.id && match.id !== activeMatch.id) {
+      setActiveMatchId(match.id);
+    }
+  }, [match, activeMatch.id, setActiveMatchId]);
+
+  if (isLoading && !match) {
+    return (
+      <main
+        role="status"
+        aria-label="Memuat data gelanggang"
+        className="min-h-screen bg-[#0F1115] text-white flex items-center justify-center p-8 select-none"
+      >
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <div className="w-12 h-12 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+          <h2 className="text-xl font-bold tracking-wide text-slate-100">Memuat Scoreboard Gelanggang...</h2>
+          <p className="text-sm text-slate-400">Menyinkronkan data pertandingan langsung dari database.</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!match) {
     return (
-      <main className="min-h-screen bg-[#0F1115] text-white flex items-center justify-center p-8 text-center">
-        <div>
-          <h1 className="text-2xl font-bold">Belum ada pertandingan di gelanggang ini</h1>
-          <p className="mt-2 text-sm text-slate-400">Data scoreboard akan muncul setelah pertandingan tersedia di database.</p>
+      <main className="min-h-screen bg-[#0F1115] text-white flex items-center justify-center p-8 text-center select-none">
+        <div className="max-w-md p-8 rounded-2xl bg-[#17191F] border border-[#2A2D36] space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+            <Trophy className="w-6 h-6" />
+          </div>
+          <h1 className="text-2xl font-bold">Belum Ada Pertandingan di Gelanggang Ini</h1>
+          <p className="text-sm text-slate-400">Data scoreboard akan otomatis muncul begitu pertandingan diaktifkan oleh operator.</p>
         </div>
       </main>
     );

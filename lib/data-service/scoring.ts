@@ -140,6 +140,15 @@ export async function submitScoreEventAction(input: {
       match.timeRemainingSeconds,
       now
     );
+
+    if (match.timerStatus !== "RUNNING") {
+      throw new ConflictError("Pertandingan sedang dijeda. Masukan nilai hanya diperbolehkan saat ronde berlangsung.");
+    }
+
+    if (remainingSeconds <= 0) {
+      throw new ConflictError("Waktu babak telah habis. Masukan nilai tidak dapat diterima setelah waktu habis.");
+    }
+
     const matchTime = formatMatchTime(remainingSeconds);
     const recentEvents = await transaction.scoreEvent.findMany({
       where: {

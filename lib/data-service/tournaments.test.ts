@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
     startDate: Date;
     endDate: Date;
     status: "UPCOMING" | "ONGOING" | "COMPLETED" | "ARCHIVED";
+    matches?: Array<{ id: string }>;
   }>,
   updates: [] as Array<{ where: { id: string }; data: { status: string } }>,
 }));
@@ -38,12 +39,20 @@ describe("resolveTournamentStatus", () => {
     expect(status).toBe("ONGOING");
   });
 
-  it("resolves to COMPLETED when tournament ended on or before today (e.g. Test tournament ended 4 Okt 2026)", () => {
+  it("resolves to COMPLETED when tournament ended on or before today (e.g. Test tournament ended 4 Okt 2026) and all matches finished", () => {
     const start = new Date("2026-10-01T00:00:00.000Z");
     const end = new Date("2026-10-04T18:00:00.000Z");
 
-    const status = resolveTournamentStatus(start, end, "UPCOMING", refDate);
+    const status = resolveTournamentStatus(start, end, "UPCOMING", refDate, false);
     expect(status).toBe("COMPLETED");
+  });
+
+  it("prevents tournament from completing (stays ONGOING) if tournament ended but has unfinished matches", () => {
+    const start = new Date("2026-10-01T00:00:00.000Z");
+    const end = new Date("2026-10-04T18:00:00.000Z");
+
+    const status = resolveTournamentStatus(start, end, "UPCOMING", refDate, true);
+    expect(status).toBe("ONGOING");
   });
 
   it("resolves to UPCOMING when start date is in the future", () => {
@@ -100,6 +109,26 @@ describe("syncTournamentStatuses", () => {
     expect(state.updates).toContainEqual({
       where: { id: "T-TEST" },
       data: { status: "COMPLETED" },
+    });
+  });
+
+  it("keeps expired tournament ONGOING when it still has unfinished matches", async () => {
+    state.tournaments = [
+      {
+        id: "T-TEST-ACTIVE",
+        startDate: new Date("2026-10-01T00:00:00.000Z"),
+        endDate: new Date("2026-10-04T23:59:59.000Z"),
+        status: "UPCOMING",
+        matches: [{ id: "MATCH-TEST-01" }], // Still active/paused
+      },
+    ];
+
+    await syncTournamentStatuses();
+
+    expect(state.updates).toHaveLength(1);
+    expect(state.updates).toContainEqual({
+      where: { id: "T-TEST-ACTIVE" },
+      data: { status: "ONGOING" },
     });
   });
 });

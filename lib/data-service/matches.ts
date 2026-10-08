@@ -10,6 +10,7 @@ import {
 import { ActionResultVoid, getErrorMessage, toActionStatus } from "./shared";
 import { ConflictError, NotFoundError, ValidationError, toStatus } from "@/lib/server/errors";
 import { syncTournamentStatuses } from "./tournaments";
+import { minJudgesRequiredForTotal } from "@/lib/scoring/rules";
 
 function parseScheduledDate(dateValue?: string, timeValue?: string): Date {
   if (dateValue && timeValue) {
@@ -54,7 +55,9 @@ export async function getMatches(): Promise<Match[]> {
     const list = await prisma.match.findMany({
       include: {
         tournament: true,
-        arena: true,
+        arena: {
+          include: { judges: true },
+        },
         category: true,
         redAthlete: {
           include: { contingent: true, category: true },
@@ -117,15 +120,18 @@ export async function getMatches(): Promise<Match[]> {
       }));
 
       const scheduledTimeStr = match.scheduledTime
-        ? `${String(match.scheduledTime.getUTCHours()).padStart(2, "0")}:${String(
-            match.scheduledTime.getUTCMinutes()
-          ).padStart(2, "0")} WIB`
+        ? match.scheduledTime instanceof Date
+          ? `${String(match.scheduledTime.getUTCHours()).padStart(2, "0")}:${String(
+              match.scheduledTime.getUTCMinutes()
+            ).padStart(2, "0")} WIB`
+          : String(match.scheduledTime)
         : "Belum ditentukan";
 
       return {
         id: match.id,
         matchNumber: match.matchNumber,
         arenaId: match.arena.arenaCode,
+        arenaDbId: match.arena.id,
         arenaName: match.arena.name,
         tournamentId: match.tournament.code,
         tournamentName: match.tournament.name,
@@ -164,6 +170,10 @@ export async function getMatches(): Promise<Match[]> {
         redPenalties,
         bluePenalties,
         events,
+        totalJudges: match.arena.judges ? match.arena.judges.length : 5,
+        minJudgesRequired: minJudgesRequiredForTotal(
+          match.arena.judges && match.arena.judges.length > 0 ? match.arena.judges.length : 5
+        ),
       };
     });
   } catch (error) {

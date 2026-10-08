@@ -161,7 +161,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
       const data = await apiClient.matches.list();
       if (Array.isArray(data)) {
         setMatches(data);
-        const liveMatch = data.find((m: Match) => m.status === "LIVE");
+        const liveMatch = data.find((m: Match) => m.status === "LIVE" || m.status === "PAUSED");
         setActiveMatchId(liveMatch?.id ?? data[0]?.id ?? "");
       }
     } catch (err) {
@@ -177,7 +177,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         const data = await apiClient.matches.list();
         if (isMounted && Array.isArray(data)) {
           setMatches(data);
-          const liveMatch = data.find((m: Match) => m.status === "LIVE");
+          const liveMatch = data.find((m: Match) => m.status === "LIVE" || m.status === "PAUSED");
           setActiveMatchId(liveMatch?.id ?? data[0]?.id ?? "");
         }
       } catch (err) {
@@ -193,6 +193,26 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
       isMounted = false;
     };
   }, [setActiveMatchId]);
+
+  // Safety poll interval to keep state synchronized across devices
+  useEffect(() => {
+    let isCancelled = false;
+    const interval = setInterval(() => {
+      apiClient.matches
+        .list()
+        .then((data) => {
+          if (!isCancelled && Array.isArray(data)) {
+            setMatches(data);
+          }
+        })
+        .catch(() => {});
+    }, SAFETY_POLL_INTERVAL_MS);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const activeMatch =
     matches.find((m) => m.id === activeMatchId) || matches[0] || DEFAULT_MATCH;
@@ -519,7 +539,7 @@ export function ScoringProvider({ children }: { children: React.ReactNode }) {
         refreshMatches,
         isLoading,
         consensusWindowMs: CONSENSUS_WINDOW_MS,
-        minJudgesRequired: minJudgesRequiredForTotal(5),
+        minJudgesRequired: activeMatch.minJudgesRequired ?? (activeMatch.totalJudges ? minJudgesRequiredForTotal(activeMatch.totalJudges) : 3),
         realtimeStatus,
       }}
     >

@@ -111,6 +111,7 @@ export interface Match {
   id: string;
   matchNumber: string; // e.g., "MATCH #023"
   arenaId: string;
+  arenaDbId?: string;
   arenaName: string; // e.g., "GELANGGANG 1"
   tournamentId: string;
   tournamentName: string;
@@ -133,6 +134,8 @@ export interface Match {
   redPenalties: PenaltyRecord[];
   bluePenalties: PenaltyRecord[];
   events: ScoreEvent[];
+  totalJudges?: number;
+  minJudgesRequired?: number;
 }
 
 export interface Arena {

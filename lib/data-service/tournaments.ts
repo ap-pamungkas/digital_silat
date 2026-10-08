@@ -44,7 +44,8 @@ export function resolveTournamentStatus(
   startDate: Date,
   endDate: Date,
   currentStatus: TournamentStatus,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  hasUnfinishedMatches: boolean = false
 ): TournamentStatus {
   if (currentStatus === "ARCHIVED") {
     return "ARCHIVED";
@@ -57,6 +58,10 @@ export function resolveTournamentStatus(
   end.setHours(23, 59, 59, 999);
 
   if (referenceDate.getTime() > end.getTime()) {
+    // Larang turnamen selesai jika masih ada partai aktif atau belum selesai
+    if (hasUnfinishedMatches) {
+      return "ONGOING";
+    }
     return "COMPLETED";
   }
   if (referenceDate.getTime() >= start.getTime()) {
@@ -69,13 +74,31 @@ export async function syncTournamentStatuses(): Promise<void> {
   try {
     const tournaments = await prisma.tournament.findMany({
       where: { status: { not: "ARCHIVED" } },
-      select: { id: true, startDate: true, endDate: true, status: true },
+      select: {
+        id: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        matches: {
+          where: {
+            status: { in: ["SCHEDULED", "READY", "LIVE", "PAUSED"] },
+          },
+          select: { id: true },
+        },
+      },
     });
 
     const now = new Date();
     const updates = tournaments
       .map((t) => {
-        const nextStatus = resolveTournamentStatus(t.startDate, t.endDate, t.status, now);
+        const hasUnfinishedMatches = t.matches && t.matches.length > 0;
+        const nextStatus = resolveTournamentStatus(
+          t.startDate,
+          t.endDate,
+          t.status,
+          now,
+          hasUnfinishedMatches
+        );
         if (nextStatus !== t.status) {
           return prisma.tournament.update({
             where: { id: t.id },

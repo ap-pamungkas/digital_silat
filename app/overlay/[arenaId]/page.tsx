@@ -5,15 +5,41 @@ import { useParams } from "next/navigation";
 import { ScoringProvider, useScoring } from "@/lib/scoring-store";
 import { formatTime, cn } from "@/lib/utils";
 
-function ObsOverlayContent() {
+function isArenaMatch(item: { arenaId?: string; arenaDbId?: string; arenaName?: string }, param: string): boolean {
+  if (!param) return false;
+  const p = param.trim().toLowerCase();
+  if (item.arenaId && item.arenaId.toLowerCase() === p) return true;
+  if (item.arenaDbId && item.arenaDbId.toLowerCase() === p) return true;
+  if (item.arenaName && item.arenaName.toLowerCase() === p) return true;
+  const cleanParam = p.replace(/^arena-0*/, "").replace(/^gelanggang\s*/, "");
+  const cleanArenaId = (item.arenaId || "").toLowerCase().replace(/^arena-0*/, "");
+  const cleanArenaName = (item.arenaName || "").toLowerCase().replace(/^gelanggang\s*/, "");
+  if (cleanParam && (cleanParam === cleanArenaId || cleanParam === cleanArenaName)) return true;
+  return false;
+}
+
+export function ObsOverlayContent() {
   const params = useParams();
   const arenaId = typeof params?.arenaId === "string" ? params.arenaId : "";
-  const { matches } = useScoring();
+  const { matches, setActiveMatchId, activeMatch } = useScoring();
 
-  const match =
-    matches.find((item) => item.arenaId === arenaId && item.status === "LIVE") ||
-    matches.find((item) => item.arenaId === arenaId && ["READY", "SCHEDULED"].includes(item.status)) ||
-    matches.filter((item) => item.arenaId === arenaId).at(-1);
+  const match = React.useMemo(() => {
+    if (!matches || matches.length === 0) return null;
+    return (
+      matches.find((item) => isArenaMatch(item, arenaId) && item.status === "LIVE") ||
+      matches.find((item) => isArenaMatch(item, arenaId) && item.status === "PAUSED") ||
+      matches.find((item) => isArenaMatch(item, arenaId) && ["READY", "SCHEDULED"].includes(item.status)) ||
+      matches.filter((item) => isArenaMatch(item, arenaId) && item.status === "FINISHED").at(-1) ||
+      matches.filter((item) => isArenaMatch(item, arenaId)).at(-1) ||
+      null
+    );
+  }, [matches, arenaId]);
+
+  React.useEffect(() => {
+    if (match && match.id && match.id !== activeMatch.id) {
+      setActiveMatchId(match.id);
+    }
+  }, [match, activeMatch.id, setActiveMatchId]);
 
   if (!match) {
     return <div className="w-screen h-screen bg-transparent" />;
