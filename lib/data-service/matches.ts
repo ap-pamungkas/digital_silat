@@ -9,6 +9,7 @@ import {
 } from "@/lib/types";
 import { ActionResultVoid, getErrorMessage, toActionStatus } from "./shared";
 import { ConflictError, NotFoundError, ValidationError, toStatus } from "@/lib/server/errors";
+import { syncTournamentStatuses } from "./tournaments";
 
 function parseScheduledDate(dateValue?: string, timeValue?: string): Date {
   if (dateValue && timeValue) {
@@ -49,6 +50,7 @@ export type MatchScheduleInput = {
 
 export async function getMatches(): Promise<Match[]> {
   try {
+    await syncTournamentStatuses().catch(() => {});
     const list = await prisma.match.findMany({
       include: {
         tournament: true,

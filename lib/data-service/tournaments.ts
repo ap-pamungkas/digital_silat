@@ -40,8 +40,64 @@ const tournamentInclude = {
   _count: { select: { arenas: true, matches: true } },
 } as const;
 
+export function resolveTournamentStatus(
+  startDate: Date,
+  endDate: Date,
+  currentStatus: TournamentStatus,
+  referenceDate: Date = new Date()
+): TournamentStatus {
+  if (currentStatus === "ARCHIVED") {
+    return "ARCHIVED";
+  }
+
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  if (referenceDate.getTime() > end.getTime()) {
+    return "COMPLETED";
+  }
+  if (referenceDate.getTime() >= start.getTime()) {
+    return "ONGOING";
+  }
+  return "UPCOMING";
+}
+
+export async function syncTournamentStatuses(): Promise<void> {
+  try {
+    const tournaments = await prisma.tournament.findMany({
+      where: { status: { not: "ARCHIVED" } },
+      select: { id: true, startDate: true, endDate: true, status: true },
+    });
+
+    const now = new Date();
+    const updates = tournaments
+      .map((t) => {
+        const nextStatus = resolveTournamentStatus(t.startDate, t.endDate, t.status, now);
+        if (nextStatus !== t.status) {
+          return prisma.tournament.update({
+            where: { id: t.id },
+            data: { status: nextStatus },
+          });
+        }
+        return null;
+      })
+      .filter((u): u is NonNullable<typeof u> => u !== null);
+
+    if (updates.length > 0) {
+      await prisma.$transaction(updates);
+    }
+  } catch (err) {
+    console.error("Failed to sync tournament statuses:", err);
+  }
+}
+
 export async function getTournaments(): Promise<Tournament[]> {
   try {
+    await syncTournamentStatuses();
+
     const list = await prisma.tournament.findMany({
       include: tournamentInclude,
       orderBy: { startDate: "asc" },

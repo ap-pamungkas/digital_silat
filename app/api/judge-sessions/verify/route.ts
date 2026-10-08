@@ -75,14 +75,14 @@ export const POST = withRouteHandler(async (request) => {
 
   if (!session) {
     throw new UnauthorizedError(
-      "Kode akses tidak sesuai dengan kode juri untuk pertandingan ini."
+      "Kode akses tidak valid. Pastikan 16 digit kode sesuai dengan yang tercantum di panel operator."
     );
   }
 
   // If judgeNumber was specified by the user and differs from the registered code
   if (parsed.data.judgeNumber && session.judge.judgeNumber !== parsed.data.judgeNumber) {
     throw new UnauthorizedError(
-      `Kode akses ini terdaftar untuk Juri ${session.judge.judgeNumber} (${session.judge.name}), bukan Juri ${parsed.data.judgeNumber}.`
+      `Kode akses ini terdaftar untuk Juri ${session.judge.judgeNumber} (${session.judge.name}), bukan Juri ${parsed.data.judgeNumber}. Silakan pilih posisi Juri ${session.judge.judgeNumber} atau periksa kembali kode akses Anda.`
     );
   }
 
@@ -105,14 +105,12 @@ export const POST = withRouteHandler(async (request) => {
   ]);
 
   const response = NextResponse.json({
-    data: {
-      success: true,
-      matchId: session.matchId,
-      judgeNumber: session.judge.judgeNumber,
-      judgeName: session.judge.name,
-      matchNumber: session.match.matchNumber,
-      arenaName: session.match.arena?.name ?? "Gelanggang",
-    },
+    success: true,
+    matchId: session.matchId,
+    judgeNumber: session.judge.judgeNumber,
+    judgeName: session.judge.name,
+    matchNumber: session.match.matchNumber,
+    arenaName: session.match.arena?.name ?? "Gelanggang",
   });
   response.cookies.set(JUDGE_SESSION_COOKIE, sessionToken, {
     httpOnly: true,

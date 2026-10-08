@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { Arena } from "@/lib/types";
+import { syncTournamentStatuses } from "./tournaments";
+import { JUDGE_HEARTBEAT_TIMEOUT_MS } from "./judges";
 
 export async function getArenas(): Promise<Arena[]> {
   try {
+    await syncTournamentStatuses().catch(() => {});
     const activeTour =
       (await prisma.tournament.findFirst({
         where: { status: "ONGOING" },
@@ -24,6 +27,7 @@ export async function getArenas(): Promise<Arena[]> {
 
     if (!list.length) return [];
 
+    const now = Date.now();
     const seenCodes = new Set<string>();
     const result: Arena[] = [];
 
@@ -31,7 +35,11 @@ export async function getArenas(): Promise<Arena[]> {
       const code = seenCodes.has(arena.arenaCode) ? `${arena.arenaCode}-${arena.id}` : arena.arenaCode;
       seenCodes.add(arena.arenaCode);
 
-      const connectedCount = arena.judges.filter((judge) => judge.status === "ONLINE").length;
+      const connectedCount = arena.judges.filter(
+        (judge) =>
+          judge.status === "ONLINE" &&
+          now - judge.lastActiveAt.getTime() <= JUDGE_HEARTBEAT_TIMEOUT_MS
+      ).length;
       result.push({
         id: code,
         name: arena.name,

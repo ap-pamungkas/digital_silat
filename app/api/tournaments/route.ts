@@ -1,5 +1,5 @@
 import { withRouteHandler, parseBody } from "@/lib/server/handler";
-import { getTournaments } from "@/lib/data-service";
+import { getTournaments, resolveTournamentStatus } from "@/lib/data-service";
 import { prisma } from "@/lib/prisma";
 import { createTournamentSchema } from "@/lib/validation";
 import { OPERATOR_ROLES, requireSessionUser } from "@/lib/auth/session";
@@ -14,14 +14,18 @@ export const POST = withRouteHandler(async (request) => {
   const count = await prisma.tournament.count();
   const newCode = `TOUR-2026-${String(count + 1).padStart(3, "0")}`;
 
+  const startDate = body.startDate ? new Date(body.startDate) : new Date();
+  const endDate = body.endDate ? new Date(body.endDate) : new Date();
+  const status = resolveTournamentStatus(startDate, endDate, "UPCOMING");
+
   const created = await prisma.tournament.create({
     data: {
       code: newCode,
       name: body.name.toUpperCase(),
       location: body.location || "GOR Utama",
-      startDate: body.startDate ? new Date(body.startDate) : new Date(),
-      endDate: body.endDate ? new Date(body.endDate) : new Date(),
-      status: "UPCOMING",
+      startDate,
+      endDate,
+      status,
     },
   });
 

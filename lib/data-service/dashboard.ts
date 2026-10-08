@@ -2,9 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { getArenas } from "./arenas";
 import { getMatches } from "./matches";
 import { formatDateIndo } from "./shared";
+import { syncTournamentStatuses } from "./tournaments";
 
 export async function getDashboardData() {
   try {
+    await syncTournamentStatuses().catch(() => {});
     const tournament =
       (await prisma.tournament.findFirst({
         where: { status: "ONGOING" },

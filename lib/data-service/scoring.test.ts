@@ -63,6 +63,7 @@ const tx = {
   judge: {
     findUnique: async () => state.judgeRow,
     count: async () => state.judgeCount,
+    update: async () => ({}),
   },
   scoreEvent: {
     findMany: async (args: { select?: Record<string, boolean>; where?: { createdAt?: Record<string, unknown> } }) => {
@@ -295,6 +296,32 @@ describe("submitScoreEventAction", () => {
     expect(state.created[1]?.data).toMatchObject({ status: "VERIFIED", verified: true });
     expect(state.matchUpdates).toHaveLength(1);
     expect(state.matchUpdates[0]?.data).toEqual({ redScore: 1 });
+  });
+
+  it("requires 3 judges when arena has 4 judges (3-dari-4 quorum)", async () => {
+    state.judgeCount = 4;
+    state.recent = [
+      { id: "EVT-1", judgeNumber: 2, status: "PENDING" },
+      { id: "EVT-2", judgeNumber: 3, status: "PENDING" },
+    ];
+
+    const result = await submitScoreEventAction({
+      matchId: "M-1",
+      corner: "RED",
+      action: "PUKULAN",
+      points: 1,
+      judgeNumber: 4,
+    });
+
+    expect(result.agreedJudges).toEqual([2, 3, 4]);
+    expect(state.created[0]?.data).toMatchObject({ status: "VERIFIED", verified: true });
+    expect(state.eventUpdates).toHaveLength(1);
+    expect(state.matchUpdates).toHaveLength(1);
+    expect(state.matchUpdates[0]?.data).toEqual({ redScore: 1 });
+    expect(state.audits[0]?.data).toMatchObject({
+      action: "SCORE_AUTO_VERIFIED",
+      details: expect.stringContaining('"quorumRequired":3'),
+    });
   });
 
   it("does not add duplicate points when another judge agrees on an already-verified event", async () => {

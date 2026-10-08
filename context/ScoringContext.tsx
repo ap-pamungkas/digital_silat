@@ -95,9 +95,20 @@ interface BroadcastMessage {
 
 export function ScoringProvider({ children }: { children: React.ReactNode }) {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeMatchId, setActiveMatchId] = useState<string>("");
-  const [currentJudgeNumber, setCurrentJudgeNumber] = useState<number>(1);
+  const [activeMatchId, _setActiveMatchId] = useState<string>("");
+  const [currentJudgeNumber, _setCurrentJudgeNumber] = useState<number>(1);
+
+  const setCurrentJudgeNumber = useCallback((num: number) => {
+    if (typeof num === "number" && !Number.isNaN(num) && num >= 1 && num <= 5) {
+      _setCurrentJudgeNumber(num);
+    }
+  }, []);
+
+  const setActiveMatchId = useCallback((id: string) => {
+    if (typeof id === "string" && id.trim() && id !== "undefined" && id !== "null") {
+      _setActiveMatchId(id);
+    }
+  }, []);
   const [lastFeedback, setLastFeedback] = useState<LastFeedbackState | null>(null);
 
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);

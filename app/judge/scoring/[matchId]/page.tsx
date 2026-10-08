@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useScoring, useToast, useJudges } from "@/hooks";
+import { apiClient } from "@/lib/api/client";
 import { JudgeSessionGate } from "@/components/judge/JudgeSessionGate";
 import { ScoreButton } from "@/components/scoring/ScoreButton";
 import { MatchTimer } from "@/components/scoring/MatchTimer";
@@ -81,6 +82,17 @@ function JudgeScoringContent() {
     const interval = setInterval(() => void refreshJudges(), 5000);
     return () => clearInterval(interval);
   }, [matchArenaId, isJudgeRegistered, refreshJudges]);
+
+  // Periodic heartbeat while judge is active on scoring pad
+  React.useEffect(() => {
+    if (!matchId || matchId === "undefined") return;
+    const sendHeartbeat = () => {
+      apiClient.judgeSessions.heartbeat().catch(() => {});
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 15000);
+    return () => clearInterval(interval);
+  }, [matchId]);
 
   const handleJudgeScore = async (
     corner: Corner,

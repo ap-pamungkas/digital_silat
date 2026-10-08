@@ -122,12 +122,18 @@ export async function submitScoreEventAction(input: {
     });
     if (!judge) throw new ValidationError("Juri belum terdaftar pada gelanggang pertandingan ini.");
 
+    const now = new Date();
+
+    await transaction.judge.update({
+      where: { id: judge.id },
+      data: { status: "ONLINE", lastActiveAt: now },
+    });
+
     const totalArenaJudges = await transaction.judge.count({
       where: { arenaId: match.arenaId },
     });
     const minRequired = minJudgesRequiredForTotal(totalArenaJudges);
 
-    const now = new Date();
     const remainingSeconds = remainingMatchSeconds(
       match.timerStatus,
       match.timerLastStartedAt,

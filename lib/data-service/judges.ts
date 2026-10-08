@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { ConnectionStatus, Judge } from "@/lib/types";
 import { ActionResult, ActionResultVoid, isPrismaUniqueConstraintError } from "./shared";
+import { syncTournamentStatuses } from "./tournaments";
+
+export const JUDGE_HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 60 seconds
 
 export async function getJudges(): Promise<Judge[]> {
   try {
+    await syncTournamentStatuses().catch(() => {});
     const activeTour =
       (await prisma.tournament.findFirst({
         where: { status: "ONGOING" },
@@ -28,21 +32,41 @@ export async function getJudges(): Promise<Judge[]> {
 
     if (!list.length) return [];
 
-    return list.map((judge) => ({
-      id: judge.id || `JURI-${judge.arena.arenaCode}-${judge.judgeNumber}`,
-      judgeNumber: judge.judgeNumber,
-      name: judge.name,
-      licenseNumber: judge.licenseNumber ?? undefined,
-      arenaId: judge.arena.arenaCode,
-      status: judge.status,
-      batteryLevel: judge.batteryLevel ?? undefined,
-      pingMs: judge.pingMs ?? undefined,
-      lastActive: judge.lastActiveAt.toLocaleString("id-ID", {
-        dateStyle: "short",
-        timeStyle: "short",
-      }),
-      device: judge.device ?? undefined,
-    }));
+    const now = Date.now();
+    const staleJudgeIds: string[] = [];
+
+    const mapped = list.map((judge) => {
+      const isExpired = now - judge.lastActiveAt.getTime() > JUDGE_HEARTBEAT_TIMEOUT_MS;
+      const effectiveStatus: ConnectionStatus = isExpired ? "OFFLINE" : judge.status;
+      if (judge.status === "ONLINE" && isExpired) {
+        staleJudgeIds.push(judge.id);
+      }
+
+      return {
+        id: judge.id || `JURI-${judge.arena.arenaCode}-${judge.judgeNumber}`,
+        judgeNumber: judge.judgeNumber,
+        name: judge.name,
+        licenseNumber: judge.licenseNumber ?? undefined,
+        arenaId: judge.arena.arenaCode,
+        status: effectiveStatus,
+        batteryLevel: judge.batteryLevel ?? undefined,
+        pingMs: judge.pingMs ?? undefined,
+        lastActive: judge.lastActiveAt.toLocaleString("id-ID", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }),
+        device: judge.device ?? undefined,
+      };
+    });
+
+    if (staleJudgeIds.length > 0) {
+      await prisma.judge.updateMany({
+        where: { id: { in: staleJudgeIds } },
+        data: { status: "OFFLINE" },
+      }).catch(() => {});
+    }
+
+    return mapped;
   } catch (error) {
     console.error("Error in getJudges:", error);
     return [];

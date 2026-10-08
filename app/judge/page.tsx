@@ -40,13 +40,17 @@ export default function JudgeHomePage() {
         accessCode,
       });
 
+      if (!result?.matchId || !result?.judgeNumber) {
+        throw new Error("Respon verifikasi sesi tidak lengkap dari server.");
+      }
+
       sessionStorage.setItem(`judge-access:${result.matchId}:${result.judgeNumber}`, accessCode);
       setVerifiedSession(result);
 
-      if (result.judgeNumber !== currentJudgeNumber) {
+      if (result.judgeNumber && result.judgeNumber !== currentJudgeNumber) {
         setCurrentJudgeNumber(result.judgeNumber);
       }
-      if (result.matchId !== activeMatch.id) {
+      if (result.matchId && result.matchId !== activeMatch.id) {
         setActiveMatchId(result.matchId);
       }
 
@@ -116,15 +120,75 @@ export default function JudgeHomePage() {
         </div>
       </div>
 
+      {matches.length > 1 && (
+        <div className="p-3.5 rounded-xl bg-white dark:bg-[#0d1c2f] border border-slate-200 dark:border-[#273649] space-y-1.5 shadow-xs">
+          <label className="text-xs font-bold text-slate-700 dark:text-[#94A3B8]">
+            Pilih Partai Pertandingan
+          </label>
+          <select
+            value={activeMatch.id}
+            onChange={(e) => setActiveMatchId(e.target.value)}
+            className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#122033] text-sm text-slate-900 dark:text-white font-medium"
+          >
+            {matches.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.arenaName} — {m.matchNumber} ({m.category})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {activeMatch.id === "NO_MATCH" ? (
-        <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-8 text-center space-y-3">
+        <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-6 text-center space-y-4">
           <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-[#273649] text-amber-600 dark:text-[#ffd165] flex items-center justify-center mx-auto font-bold text-lg">
             J{currentJudgeNumber}
           </div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">Menunggu Pertandingan</h2>
-          <p className="text-xs text-slate-500 dark:text-[#94A3B8] max-w-xs mx-auto">
-            Operator gelanggang belum mengaktifkan partai tanding. Scoring pad akan otomatis terhubung saat pertandingan dimulai.
-          </p>
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Menunggu Pertandingan</h2>
+            <p className="text-xs text-slate-500 dark:text-[#94A3B8] max-w-xs mx-auto mt-1">
+              Operator belum mengaktifkan partai tanding. Masukkan kode akses 16 karakter dari operator untuk menghubungkan perangkat ke partai pertandingan.
+            </p>
+          </div>
+
+          <div className="pt-2 max-w-sm mx-auto text-left space-y-2">
+            <label className="text-xs font-bold text-slate-700 dark:text-[#94A3B8] flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5" />
+              Kode Akses Juri
+            </label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Kode 16 karakter"
+                value={accessCode}
+                onChange={(e) => {
+                  setAccessCode(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, ""));
+                  setVerifiedSession(null);
+                  setVerificationError("");
+                }}
+                maxLength={16}
+                className="font-mono text-center tracking-widest uppercase"
+              />
+              <Button variant="outline" onClick={() => void handleValidateCode()} disabled={accessCode.length !== 16 || isVerifyingCode}>
+                {isVerifyingCode ? "Memeriksa..." : "Validasi"}
+              </Button>
+            </div>
+            {verificationError ? (
+              <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">{verificationError}</p>
+            ) : null}
+
+            {isCodeValid && verifiedSession ? (
+              <Link href={`/judge/scoring/${verifiedSession.matchId}?juri=${verifiedSession.judgeNumber}`} className="block w-full pt-2">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full text-base sm:text-lg h-14"
+                >
+                  <span>Masuk Ke Penilaian Partai</span>
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 dark:border-[#273649] bg-white dark:bg-[#0d1c2f] p-5 space-y-5 shadow-xs transition-colors">
@@ -213,8 +277,11 @@ export default function JudgeHomePage() {
                 ) : null}
               </div>
 
-              {isCodeValid ? (
-                <Link href={`/judge/scoring/${activeMatch.id}?juri=${currentJudgeNumber}`} className="block w-full">
+              {isCodeValid && verifiedSession ? (
+                <Link
+                  href={`/judge/scoring/${verifiedSession.matchId}?juri=${verifiedSession.judgeNumber}`}
+                  className="block w-full"
+                >
                   <Button
                     variant="primary"
                     size="lg"

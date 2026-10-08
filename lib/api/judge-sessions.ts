@@ -37,11 +37,27 @@ export const judgeSessionsApi = {
     return http.post<JudgeSessionAccess[]>(`/api/matches/${matchId}/judge-sessions`);
   },
 
-  verify: (data: VerifyJudgeSessionDto): Promise<VerifyJudgeSessionResultDto> => {
-    return http.post<VerifyJudgeSessionResultDto>("/api/judge-sessions/verify", data);
+  verify: async (data: VerifyJudgeSessionDto): Promise<VerifyJudgeSessionResultDto> => {
+    const res = await http.post<VerifyJudgeSessionResultDto | { data: VerifyJudgeSessionResultDto }>("/api/judge-sessions/verify", data);
+    if ("data" in res && res.data && typeof res.data === "object" && "matchId" in res.data) {
+      return res.data as VerifyJudgeSessionResultDto;
+    }
+    return res as VerifyJudgeSessionResultDto;
   },
 
-  me: (): Promise<JudgeDeviceSessionDto> => {
-    return http.get<JudgeDeviceSessionDto>("/api/judge-sessions/me");
+  me: async (): Promise<JudgeDeviceSessionDto> => {
+    const res = await http.get<JudgeDeviceSessionDto | { data: JudgeDeviceSessionDto }>("/api/judge-sessions/me");
+    if ("data" in res && res.data && typeof res.data === "object" && "matchId" in res.data) {
+      return res.data as JudgeDeviceSessionDto;
+    }
+    return res as JudgeDeviceSessionDto;
+  },
+
+  heartbeat: async (): Promise<{ success: boolean; lastActiveAt: string }> => {
+    const res = await http.post<{ success: boolean; lastActiveAt: string } | { data: { success: boolean; lastActiveAt: string } }>("/api/judge-sessions/heartbeat");
+    if ("data" in res && res.data && typeof res.data === "object") {
+      return res.data as { success: boolean; lastActiveAt: string };
+    }
+    return res as { success: boolean; lastActiveAt: string };
   },
 };
